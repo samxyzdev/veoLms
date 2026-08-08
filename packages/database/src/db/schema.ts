@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -127,11 +128,9 @@ export const coursePurchaseTable = pgTable(
   "course_purchase",
   {
     id: uuid().primaryKey().defaultRandom(),
-
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id),
-
     courseId: uuid("course_id")
       .notNull()
       .references(() => coursesTable.id),
@@ -202,3 +201,41 @@ export const transactionsTable = pgTable("transactions", {
   paymentGatewayId: varchar("payment_gateway_id", { length: 255 }).notNull(),
   status: paymentStatusEnum().default("pending").notNull(),
 });
+
+export const otpTable = pgTable(
+  "otp",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    hashOtp: varchar("hashOtp", { length: 255 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    // expiresAt manually set karna hoga (e.g. +15 mins in JS)
+    expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("otp_email_idx").on(table.email)],
+);
+
+export const sessionTable = pgTable(
+  "session",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    token: varchar("token").notNull().unique(),
+    userId: uuid("userId")
+      .references(() => usersTable.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    // expiresAt me defaultNow nahi rakha taaki app logic future time set kar sake
+    expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("session_userId_idx").on(table.userId)],
+);
