@@ -8,6 +8,13 @@
       "when": 1778759459759,
       "tag": "0000_yummy_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787047199061,
+      "tag": "0001_bizarre_ozymandias",
+      "breakpoints": true
     }
   ]
 }
