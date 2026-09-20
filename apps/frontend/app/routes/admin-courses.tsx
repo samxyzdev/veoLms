@@ -12,8 +12,11 @@ import {
 } from "../components/landing/icons";
 import {
   createCourse,
+  addCourseVideo,
   getAdminCategories,
   getAdminCourses,
+  requestVideoUpload,
+  updateCourse,
   type AdminCategory,
   type Course,
 } from "../lib/api";
@@ -48,6 +51,7 @@ export default function AdminCourses() {
 
   // --- Create-course form state ---
   const [showForm, setShowForm] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -55,6 +59,9 @@ export default function AdminCourses() {
   const [categoryId, setCategoryId] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [sectionTitle, setSectionTitle] = useState("Course content");
+  const [lectureTitle, setLectureTitle] = useState("");
 
   /**
    * Load the options for the Category select. `isCancelled` lets the initial
@@ -107,7 +114,63 @@ export default function AdminCourses() {
       .catch(() => setCourses([]));
   }
 
-  /** Create the course, then reload the list and reset the form. */
+  function resetForm() {
+    setEditingCourse(null);
+    setTitle("");
+    setDescription("");
+    setPrice("");
+    setCourseLanguage("");
+    setCategoryId("");
+    setVideoFile(null);
+    setSectionTitle("Course content");
+    setLectureTitle("");
+    setCreateError("");
+  }
+
+  function openCreateForm() {
+    resetForm();
+    setShowForm(true);
+  }
+
+  function openEditForm(course: Course) {
+    setEditingCourse(course);
+    setTitle(course.title);
+    setDescription(course.description ?? "");
+    setPrice(String(course.price));
+    setCourseLanguage(course.courseLanguage);
+    setCategoryId(course.categoryId);
+    setVideoFile(null);
+    setSectionTitle("Course content");
+    setLectureTitle("");
+    setCreateError("");
+    setShowForm(true);
+  }
+
+  async function uploadVideo(courseId: string) {
+    if (!videoFile) return;
+    if (!videoFile.type.startsWith("video/")) {
+      throw new Error("Please choose a video file.");
+    }
+
+    const { uploadUrl, publicUrl } = await requestVideoUpload(videoFile);
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      body: videoFile,
+      headers: { "Content-Type": videoFile.type },
+    });
+
+    if (!response.ok) {
+      throw new Error("Video upload failed. Please try again.");
+    }
+
+    await addCourseVideo(courseId, {
+      sectionTitle: sectionTitle.trim() || "Course content",
+      title: lectureTitle.trim() || videoFile.name.replace(/\.[^.]+$/, ""),
+      contentUrl: publicUrl,
+    });
+  }
+
+  /** Save course details and optionally upload/attach a video lecture. */
   async function handleCreateCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isCreating) return;
@@ -115,19 +178,20 @@ export default function AdminCourses() {
     setIsCreating(true);
     setCreateError("");
     try {
-      await createCourse({
+      const courseInput = {
         title: title.trim(),
         description: description.trim(),
         price: Number(price),
         courseLanguage: courseLanguage.trim(),
         categoryId,
-      });
+      };
+      const courseId = editingCourse
+        ? (await updateCourse(editingCourse.id, courseInput), editingCourse.id)
+        : await createCourse(courseInput);
+
+      await uploadVideo(courseId);
       setShowForm(false);
-      setTitle("");
-      setDescription("");
-      setPrice("");
-      setCourseLanguage("");
-      setCategoryId("");
+      resetForm();
       refreshCourses();
     } catch (error) {
       setCreateError(
@@ -154,7 +218,7 @@ export default function AdminCourses() {
         </div>
         <button
           type="button"
-          onClick={() => setShowForm((visible) => !visible)}
+          onClick={() => (showForm ? (setShowForm(false), resetForm()) : openCreateForm())}
           className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover"
         >
           {showForm ? <XIcon className="size-4" /> : <PlusIcon className="size-4" />}
@@ -168,9 +232,11 @@ export default function AdminCourses() {
           onSubmit={handleCreateCourse}
           className="mt-6 rounded-xl border border-line bg-surface p-5"
         >
-          <h2 className="text-sm font-semibold text-white">New course</h2>
+          <h2 className="text-sm font-semibold text-white">
+            {editingCourse ? "Edit course" : "New course"}
+          </h2>
           <p className="mt-0.5 text-xs text-gray-500">
-            Fill in the basics — sections and video content can be added later.
+            Save the course details and optionally attach a video lecture.
           </p>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -261,6 +327,48 @@ export default function AdminCourses() {
                 )
               )}
             </label>
+
+            <div className="rounded-lg border border-dashed border-line bg-base/50 p-4 sm:col-span-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-300">Video lecture</p>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Optional — uploaded directly to configured video storage.
+                  </p>
+                </div>
+                {videoFile && (
+                  <span className="max-w-xs truncate text-xs text-brand-light">
+                    {videoFile.name}
+                  </span>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="video/*"
+                onChange={(event) => setVideoFile(event.target.files?.[0] ?? null)}
+                className="mt-3 block w-full text-sm text-gray-400 file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-hover"
+              />
+              {videoFile && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    value={sectionTitle}
+                    onChange={(event) => setSectionTitle(event.target.value)}
+                    placeholder="Section title"
+                    maxLength={255}
+                    className={inputClasses}
+                  />
+                  <input
+                    type="text"
+                    value={lectureTitle}
+                    onChange={(event) => setLectureTitle(event.target.value)}
+                    placeholder="Lecture title (defaults to file name)"
+                    maxLength={255}
+                    className={inputClasses}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {createError && (
@@ -272,7 +380,10 @@ export default function AdminCourses() {
           <div className="mt-5 flex items-center justify-end gap-3">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={() => {
+                setShowForm(false);
+                resetForm();
+              }}
               className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-gray-300 transition hover:bg-base"
             >
               Cancel
@@ -289,7 +400,13 @@ export default function AdminCourses() {
               }
               className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-brand"
             >
-              {isCreating ? "Creating…" : "Create Course"}
+              {isCreating
+                ? videoFile
+                  ? "Saving & uploading…"
+                  : "Saving…"
+                : editingCourse
+                  ? "Save changes"
+                  : "Create Course"}
               {!isCreating && <CheckIcon className="size-4" />}
             </button>
           </div>
@@ -313,6 +430,7 @@ export default function AdminCourses() {
                   <th className="px-5 py-3 font-semibold">Language</th>
                   <th className="px-5 py-3 font-semibold">Price</th>
                   <th className="px-5 py-3 font-semibold">Created</th>
+                  <th className="px-5 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -329,6 +447,16 @@ export default function AdminCourses() {
                       {formatPrice(course.price)}
                     </td>
                     <td className="px-5 py-3 text-gray-400">{formatDate(course.createdAt)}</td>
+                    <td className="px-5 py-3">
+                      <button
+                        type="button"
+                        onClick={() => openEditForm(course)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-gray-300 transition hover:border-brand hover:text-white"
+                      >
+                        <BookOpenIcon className="size-3.5" />
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

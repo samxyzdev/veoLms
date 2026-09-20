@@ -3,25 +3,27 @@ import { Resend } from "resend";
 /**
  * Sends a 6-digit OTP to the user's email using Resend.
  *
- * DEV NOTE:
- * When `RESEND_EMAIL_API` is empty (or sending fails), the email can't go out,
- * so we log the OTP to the server console instead. That lets you test the whole
- * flow locally without a real key. Add your key in `apps/backend/.env` and the
- * email will be sent for real.
+ * In local development, an absent email key logs the code to the server console
+ * so the flow is testable. Production never logs OTPs and fails the request
+ * when delivery cannot be configured or completed.
  */
 export const sendEmail = async (email: string, otp: string) => {
   const apiKey = process.env.RESEND_EMAIL_API;
+  const isProduction = process.env.NODE_ENV === "production";
 
   if (!apiKey) {
-    console.log("📧 [dev] RESEND_EMAIL_API is empty — no email sent.");
-    console.log(`📧 [dev] OTP for ${email}: ${otp}`);
-    return;
+    if (!isProduction) {
+      console.log("📧 [dev] RESEND_EMAIL_API is empty — no email sent.");
+      console.log(`📧 [dev] OTP for ${email}: ${otp}`);
+      return;
+    }
+    throw new Error("Email delivery is not configured.");
   }
 
   const resend = new Resend(apiKey);
 
   try {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: "onboarding@resend.dev",
       to: email,
       subject: "Your Learnova verification code",
@@ -34,10 +36,15 @@ export const sendEmail = async (email: string, otp: string) => {
         </div>
       `,
     });
-    console.log(`📧 OTP email sent to ${email}`);
+    if (error) {
+      throw new Error(error.message);
+    }
   } catch (error) {
-    // Don't break the request — log the error and the code so local dev still works.
     console.error("Failed to send OTP email:", error);
-    console.log(`📧 [dev] OTP for ${email}: ${otp}`);
+    if (!isProduction) {
+      console.log(`📧 [dev] OTP for ${email}: ${otp}`);
+      return;
+    }
+    throw error;
   }
 };

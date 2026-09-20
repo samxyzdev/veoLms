@@ -1,19 +1,25 @@
 import * as z from "zod";
 
 export const OtpSchema = z.object({
-  email: z.string(),
+  email: z.email().trim().toLowerCase(),
 });
 
 export const SignupSchema = z.object({
   name: z.string().min(3, "Too short").max(25),
-  email: z.email().min(3, "Too short").max(25),
+  email: z.email().min(3, "Too short").max(25).trim().toLowerCase(),
   password: z.string().min(8).max(30),
   otp: z.string().min(6).max(6),
 });
 
 export const SigninSchema = z.object({
-  email: z.email().min(3, "Too short").max(25),
+  email: z.email().min(3, "Too short").max(25).trim().toLowerCase(),
   password: z.string().min(8).max(30),
+});
+
+export const ResetPasswordSchema = z.object({
+  email: z.email().trim().toLowerCase(),
+  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+  newPassword: z.string().min(8).max(30),
 });
 
 export const UserSchema = z.object({
@@ -39,6 +45,17 @@ export const CreateCourseSchema = z.object({
   price: z.number().int().min(0),
   courseLanguage: z.string().trim().min(1).max(50),
   categoryId: z.uuid(),
+});
+
+export const UpdateCourseSchema = CreateCourseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  "Provide at least one field to update",
+);
+
+export const CreateCourseVideoSchema = z.object({
+  sectionTitle: z.string().trim().min(1).max(255),
+  title: z.string().trim().min(1).max(255),
+  contentUrl: z.url().max(2000),
 });
 
 export const CourseSectionSchema = z.object({

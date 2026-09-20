@@ -30,6 +30,14 @@ export function meta({}: Route.MetaArgs) {
 /** How often (in seconds of playback) the position is pushed to the backend. */
 const SAVE_EVERY_SECONDS = 15;
 
+/** Temporary hosted source for the Node.js course until first-party videos land. */
+const TEMPORARY_NODEJS_PLAYLIST_URL =
+  "https://www.youtube.com/watch?v=RdkoOdZYNGw&list=PLfEr2kn3s-bqrqEzlQXbrFwisqlYspmRr";
+
+function isNodeJsCourse(title: string): boolean {
+  return /\bnode(?:\.?js)?\b/i.test(title);
+}
+
 /**
  * Returns a copy of `course` with one lecture patched, keeping the section and
  * course rollups (completed counts + percentage) in sync locally so the UI
@@ -327,6 +335,7 @@ export default function CoursePlayerPage() {
   }
 
   const totalLectures = course.totalCount;
+  const usesTemporaryNodePlaylist = isNodeJsCourse(course.title);
 
   return (
     <DashboardLayout user={user}>
@@ -346,13 +355,17 @@ export default function CoursePlayerPage() {
       <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ----------------------------- player ----------------------------- */}
         <div className="min-w-0">
-          {activeLecture ? (
+          {activeLecture || usesTemporaryNodePlaylist ? (
             <VideoPlayer
-              src={activeLecture.contentUrl}
-              title={activeLecture.title}
-              startAt={activeLecture.watchedSeconds}
+              src={
+                usesTemporaryNodePlaylist
+                  ? TEMPORARY_NODEJS_PLAYLIST_URL
+                  : activeLecture!.contentUrl
+              }
+              title={activeLecture?.title ?? `${course.title} playlist`}
+              startAt={activeLecture?.watchedSeconds ?? 0}
               autoPlay={autoPlay}
-              isCompleted={activeLecture.isCompleted}
+              isCompleted={activeLecture?.isCompleted ?? false}
               hasNext={activeIndex >= 0 && activeIndex < lectures.length - 1}
               onNext={() => goToOffset(1)}
               onProgress={handleProgress}
@@ -393,6 +406,11 @@ export default function CoursePlayerPage() {
                       : "Not started"}
                   </span>
                 </p>
+                {usesTemporaryNodePlaylist && (
+                  <p className="mt-2 text-xs text-amber-300">
+                    Temporarily streaming the Node.js YouTube playlist.
+                  </p>
+                )}
               </div>
 
               <button

@@ -54,7 +54,14 @@ function toEmbedUrl(url: string): string | null {
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/,
   );
   if (youtube) {
-    return `https://www.youtube.com/embed/${youtube[1]}?rel=0&modestbranding=1`;
+    // Preserve the playlist when a course points to a YouTube playlist. The
+    // old embed URL kept only the first video, so "next" never moved through
+    // the supplied course playlist.
+    const playlist = url.match(/[?&]list=([^&]+)/)?.[1];
+    const playlistParams = playlist
+      ? `&list=${encodeURIComponent(decodeURIComponent(playlist))}&listType=playlist`
+      : "";
+    return `https://www.youtube.com/embed/${youtube[1]}?rel=0&modestbranding=1${playlistParams}`;
   }
 
   const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);

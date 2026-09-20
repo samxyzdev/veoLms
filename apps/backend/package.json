@@ -8,8 +8,9 @@
   },
   "scripts": {
     "dev": "bun run --watch ./index.ts",
-    "dev:debug": "bun --inspect src/index.ts",
-    "build": "bun build ./src/index.ts --outdir ./dist"
+    "dev:debug": "bun --inspect ./index.ts",
+    "build": "bun build ./index.ts --target=bun --outdir ./dist",
+    "check-types": "tsc --noEmit"
   },
   "peerDependencies": {
     "typescript": "^5"

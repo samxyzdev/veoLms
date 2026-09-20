@@ -72,7 +72,46 @@ export interface CreateCourseInput {
   categoryId: string;
 }
 
+export type UpdateCourseInput = Partial<CreateCourseInput>;
+
+export interface CourseVideoInput {
+  sectionTitle: string;
+  title: string;
+  contentUrl: string;
+}
+
 /** Create a course. The backend requires the logged-in user to be an admin. */
-export async function createCourse(input: CreateCourseInput): Promise<void> {
-  await apiClient.post("/admin/courses", input);
+export async function createCourse(input: CreateCourseInput): Promise<string> {
+  const { data } = await apiClient.post<{ courseId: string }>("/admin/courses", input);
+  return data.courseId;
+}
+
+/** Update a course's title, description, price, language, or category. */
+export async function updateCourse(
+  courseId: string,
+  input: UpdateCourseInput,
+): Promise<void> {
+  await apiClient.patch(`/admin/courses/${courseId}`, input);
+}
+
+/** Request a short-lived direct-upload URL for one course video. */
+export async function requestVideoUpload(file: File): Promise<{
+  uploadUrl: string;
+  publicUrl: string;
+}> {
+  const { data } = await apiClient.get<{
+    uploadUrl: string;
+    publicUrl: string;
+  }>("/admin/uploads", {
+    params: { fileName: file.name, fileType: file.type },
+  });
+  return data;
+}
+
+/** Attach an uploaded video to a course as a lecture. */
+export async function addCourseVideo(
+  courseId: string,
+  input: CourseVideoInput,
+): Promise<void> {
+  await apiClient.post(`/admin/courses/${courseId}/videos`, input);
 }

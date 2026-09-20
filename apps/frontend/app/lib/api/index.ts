@@ -10,6 +10,8 @@ export {
   generateOtp,
   getMe,
   logOut,
+  requestPasswordReset,
+  resetPassword,
   signIn,
   signUp,
   updateProfile,
@@ -47,9 +49,12 @@ export type {
 } from "./dashboard";
 export {
   createCourse,
+  addCourseVideo,
   getAdminCategories,
   getAdminCourses,
   getAdminStats,
+  requestVideoUpload,
+  updateCourse,
   getAdminUsers,
   updateUserRole,
 } from "./admin";
@@ -58,4 +63,6 @@ export type {
   AdminStats,
   AdminUser,
   CreateCourseInput,
+  CourseVideoInput,
+  UpdateCourseInput,
 } from "./admin";

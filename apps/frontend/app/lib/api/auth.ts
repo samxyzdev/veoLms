@@ -35,6 +35,22 @@ export function signIn(email: string, password: string): Promise<void> {
     .then(() => undefined);
 }
 
+/** Send a password-reset verification code if an account exists for the email. */
+export function requestPasswordReset(email: string): Promise<void> {
+  return apiClient
+    .post("/user/password-reset/request", { email })
+    .then(() => undefined);
+}
+
+/** Confirm a reset code, set the new password, and revoke prior sessions. */
+export function resetPassword(input: {
+  email: string;
+  otp: string;
+  newPassword: string;
+}): Promise<void> {
+  return apiClient.post("/user/password-reset/confirm", input).then(() => undefined);
+}
+
 /**
  * Create an admin account (role "admin"). Same OTP flow as user signup, but
  * the backend stores the account with admin role (see adminAuthRoutes).
