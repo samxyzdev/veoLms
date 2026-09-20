@@ -7,30 +7,43 @@ import { and, db, eq, otpTable } from "@repo/database";
 
 export const otpRoutes = Router();
 
+/**
+ * POST /api/v1/otp/generate-otp
+ * Body: { email }
+ *
+ * Creates a fresh 6-digit OTP for the email, stores only its hash in the DB
+ * (so the plain code never persists) and emails it to the user.
+ */
 otpRoutes.post("/generate-otp", async (req, res, next) => {
-  // email
-  console.log("genearted otp");
   const { success, data, error } = OtpSchema.safeParse(req.body);
   if (!success) {
     return res.status(400).json({
       message: "Validation failed",
-      errors: error.flatten,
+      errors: error.flatten(),
     });
   }
+
   const { email } = data;
   const randomOtp = generateOtp(6);
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-  console.log(randomOtp);
-  // sendEmail(email, randomOtp);
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // valid for 5 minutes
   const hashOtp = hashFunction(randomOtp);
+
   try {
+    // Remove any earlier code for this email so only the newest OTP is valid
+    // (e.g. after the user clicks "Resend code").
+    await db.delete(otpTable).where(eq(otpTable.email, email));
+
     await db.insert(otpTable).values({ email, hashOtp, expiresAt });
+
+    // Email the code. If sending fails (no API key, etc.) the OTP is logged
+    // to the console by sendEmail so the flow can still be tested locally.
+    await sendEmail(email, randomOtp);
+
     return res.status(200).json({
-      message: "OTP generated successfully",
+      message: "OTP sent successfully",
     });
   } catch (error) {
     console.error(error);
-    // next(error) // globl error handler call
     return res.status(500).json({
       message: "Something went wrong",
     });

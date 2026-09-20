@@ -1,10 +1,11 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { verifyOtp } from "../utilities/verifyOtp";
 import { asc, db, eq, sessionTable, usersTable } from "@repo/database";
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
 import { hashFunction } from "../utilities/hashFunction";
-import { SigninSchema, SignupSchema } from "@repo/zod";
+import { SigninSchema, SignupSchema, UpdateProfileSchema } from "@repo/zod";
+import { checkAuth } from "../middleware/checkAuth";
 
 export const userRoutes = Router();
 
@@ -21,11 +22,14 @@ userRoutes.post("/signup", async (req, res, next) => {
   console.log("1");
 
   const { name, email, otp, password } = data;
-  // OTP
-  const isOtpValid = verifyOtp(email, otp);
+
+  // OTP must be valid and not expired before we create the account.
+  // (verifyOtp also deletes the used code row on success.)
+  const isOtpValid = await verifyOtp(email, otp);
   if (!isOtpValid) {
-    return res.status(500).json({
-      error: "otp or email not valid",
+    return res.status(400).json({
+      message:
+        "Invalid or expired OTP. Please enter the correct code and try again.",
     });
   }
 
@@ -164,4 +168,117 @@ userRoutes.post("/signin", async (req, res) => {
     message: "User signed successfully",
     number: "14",
   });
+});
+
+userRoutes.post("/logout", async (req: Request, res: Response) => {
+  // Best effort: delete the session row if one exists, then always clear the
+  // cookie so logout works even when the session already expired.
+  const { sid } = req.signedCookies;
+  if (sid) {
+    const hashedToken = crypto.createHash("sha256").update(sid).digest("hex");
+    await db.delete(sessionTable).where(eq(sessionTable.token, hashedToken));
+  }
+
+  res.clearCookie("sid", {
+    httpOnly: true,
+    secure: false,
+    signed: true,
+    sameSite: "lax",
+  });
+
+  return res.status(200).json({
+    message: "Logged out successfully",
+  });
+});
+
+userRoutes.patch("/me", checkAuth, async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ message: "Please relogin" });
+  }
+
+  const { success, data, error } = UpdateProfileSchema.safeParse(req.body);
+  if (!success) {
+    return res.status(400).json({
+      message: "input details not correct",
+      errors: error,
+    });
+  }
+
+  const { name, email, currentPassword, newPassword } = data;
+
+  // Changing the password requires the current one to be correct.
+  if (newPassword) {
+    const [existingUser] = await db
+      .select({ password: usersTable.password })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+
+    if (!existingUser) {
+      return res.status(401).json({ message: "Please relogin" });
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword ?? "",
+      existingUser.password,
+    );
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+  }
+
+  // Email must not already belong to another account.
+  if (email) {
+    const [emailOwner] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+
+    if (emailOwner && emailOwner.id !== userId) {
+      return res.status(400).json({ message: "Email is already in use" });
+    }
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (name) updates.name = name;
+  if (email) updates.email = email;
+  if (newPassword) updates.password = await bcrypt.hash(newPassword, 10);
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ message: "Nothing to update" });
+  }
+
+  await db
+    .update(usersTable)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(usersTable.id, userId));
+
+  return res.status(200).json({
+    message: "Profile updated successfully",
+  });
+});
+
+userRoutes.get("/me", checkAuth, async (req: Request, res: Response) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Please relogin",
+    });
+  }
+
+  try {
+    const userDetails = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+
+    return res.status(200).json({
+      userDetails,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
 });

@@ -1,4 +1,6 @@
 import {
+  boolean,
+  date,
   index,
   integer,
   pgEnum,
@@ -200,6 +202,11 @@ export const transactionsTable = pgTable("transactions", {
   amountPaid: integer("amount_paid").notNull(),
   paymentGatewayId: varchar("payment_gateway_id", { length: 255 }).notNull(),
   status: paymentStatusEnum().default("pending").notNull(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
 });
 
 export const otpTable = pgTable(
@@ -238,4 +245,170 @@ export const sessionTable = pgTable(
     expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
   },
   (table) => [index("session_userId_idx").on(table.userId)],
+);
+
+export const courseProgressTable = pgTable(
+  "course_progress",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => coursesTable.id),
+
+    // User ne last kaunsa lesson/content dekha tha
+    lastContentId: uuid("last_content_id").references(
+      () => courseContentsTable.id,
+    ),
+
+    progressPercentage: integer("progress_percentage").default(0).notNull(),
+
+    lastAccessedAt: timestamp("last_accessed_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+
+  (table) => [
+    unique("course_progress_user_course_unique").on(
+      table.userId,
+      table.courseId,
+    ),
+
+    index("course_progress_user_id_idx").on(table.userId),
+    index("course_progress_course_id_idx").on(table.courseId),
+    index("course_progress_last_accessed_at_idx").on(table.lastAccessedAt),
+  ],
+);
+
+export const contentProgressTable = pgTable(
+  "content_progress",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => courseContentsTable.id),
+
+    isCompleted: boolean("is_completed").default(false).notNull(),
+
+    watchedSeconds: integer("watched_seconds").default(0).notNull(),
+
+    completedAt: timestamp("completed_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+
+  (table) => [
+    unique("content_progress_user_content_unique").on(
+      table.userId,
+      table.contentId,
+    ),
+
+    index("content_progress_user_id_idx").on(table.userId),
+    index("content_progress_content_id_idx").on(table.contentId),
+  ],
+);
+
+export const userActivityTable = pgTable(
+  "user_activity",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+
+    activityDate: date("activity_date").notNull(),
+
+    minutesStudied: integer("minutes_studied").default(0).notNull(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+
+  (table) => [
+    unique("user_activity_user_date_unique").on(
+      table.userId,
+      table.activityDate,
+    ),
+
+    index("user_activity_user_id_idx").on(table.userId),
+    index("user_activity_activity_date_idx").on(table.activityDate),
+  ],
+);
+
+export const userGoalsTable = pgTable(
+  "user_goals",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+
+    targetMinutes: integer("target_minutes").notNull(),
+
+    weekStart: date("week_start").notNull(),
+
+    weekEnd: date("week_end").notNull(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+
+  (table) => [
+    unique("user_goals_user_week_unique").on(table.userId, table.weekStart),
+
+    index("user_goals_user_id_idx").on(table.userId),
+  ],
 );

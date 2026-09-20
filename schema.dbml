@@ -1,0 +1,313 @@
+CREATE SCHEMA IF NOT EXISTS "public";
+
+-- Enums (skip these two CREATE TYPE statements if they already exist)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+    CREATE TYPE "public"."user_role" AS ENUM ('user', 'course_creator', 'admin');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
+    CREATE TYPE "public"."payment_status" AS ENUM ('pending', 'success', 'failed', 'refunded');
+  END IF;
+END $$;
+
+CREATE TABLE "public"."transactions" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" uuid NOT NULL,
+    "course_id" uuid NOT NULL,
+    "amount_paid" int NOT NULL,
+    "payment_gateway_id" varchar(255) NOT NULL,
+    "status" payment_status NOT NULL DEFAULT 'pending',
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "transactions_payment_gateway_id_unique"
+ON "public"."transactions" ("payment_gateway_id");
+
+CREATE INDEX "transactions_user_id_idx" ON "public"."transactions" ("user_id");
+CREATE INDEX "transactions_course_id_idx" ON "public"."transactions" ("course_id");
+CREATE INDEX "transactions_status_idx" ON "public"."transactions" ("status");
+
+CREATE TABLE "public"."session" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "token" varchar NOT NULL UNIQUE,
+    "userId" uuid NOT NULL,
+    "createdAt" timestamptz NOT NULL DEFAULT now(),
+    "updatedAt" timestamptz NOT NULL DEFAULT now(),
+    "expiresAt" timestamptz NOT NULL,
+    PRIMARY KEY ("id")
+);
+
+CREATE INDEX "session_userId_idx" ON "public"."session" ("userId");
+
+CREATE TABLE "public"."courses" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "title" varchar(255) NOT NULL,
+    "description" varchar(1000),
+    "price" int NOT NULL,
+    "created_by" uuid NOT NULL,
+    "category_id" uuid NOT NULL,
+    "course_language" varchar(50) NOT NULL,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE INDEX "courses_created_by_idx" ON "public"."courses" ("created_by");
+CREATE INDEX "courses_category_id_idx" ON "public"."courses" ("category_id");
+
+CREATE TABLE "public"."course_purchase" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" uuid NOT NULL,
+    "course_id" uuid NOT NULL,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "course_purchase_user_course_unique"
+ON "public"."course_purchase" ("user_id", "course_id");
+
+CREATE INDEX "course_purchase_user_id_idx" ON "public"."course_purchase" ("user_id");
+CREATE INDEX "course_purchase_course_id_idx" ON "public"."course_purchase" ("course_id");
+
+CREATE TABLE "public"."cart" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" uuid NOT NULL,
+    "course_id" uuid NOT NULL,
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "cart_user_course_unique"
+ON "public"."cart" ("user_id", "course_id");
+
+CREATE INDEX "cart_user_id_idx" ON "public"."cart" ("user_id");
+CREATE INDEX "cart_course_id_idx" ON "public"."cart" ("course_id");
+
+CREATE TABLE "public"."users" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "name" varchar(255) NOT NULL,
+    "email" varchar(255) NOT NULL UNIQUE,
+    "password" varchar(512) NOT NULL,
+    "role" user_role NOT NULL DEFAULT 'user',
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE TABLE "public"."categories" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "name" varchar(255) NOT NULL UNIQUE,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE TABLE "public"."course_sections" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "course_id" uuid NOT NULL,
+    "title" varchar(255) NOT NULL,
+    "sequence_order" int NOT NULL,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE INDEX "course_sections_course_id_idx" ON "public"."course_sections" ("course_id");
+CREATE UNIQUE INDEX "course_sections_course_sequence_unique"
+ON "public"."course_sections" ("course_id", "sequence_order");
+
+CREATE TABLE "public"."course_contents" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "section_id" uuid NOT NULL,
+    "title" varchar(255) NOT NULL,
+    "content_type" varchar(50) NOT NULL,
+    "content_url" text NOT NULL,
+    "sequence_order" int NOT NULL,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE INDEX "course_contents_section_id_idx" ON "public"."course_contents" ("section_id");
+CREATE UNIQUE INDEX "course_contents_section_sequence_unique"
+ON "public"."course_contents" ("section_id", "sequence_order");
+
+CREATE TABLE "public"."otp" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "hashOtp" varchar(255) NOT NULL,
+    "email" varchar(255) NOT NULL,
+    "createdAt" timestamptz NOT NULL DEFAULT now(),
+    "updatedAt" timestamptz NOT NULL DEFAULT now(),
+    "expiresAt" timestamptz NOT NULL,
+    PRIMARY KEY ("id")
+);
+
+CREATE INDEX "otp_email_idx" ON "public"."otp" ("email");
+
+CREATE TABLE "public"."reviews" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "course_id" uuid NOT NULL,
+    "user_id" uuid NOT NULL,
+    "rating" int NOT NULL,
+    "comment" varchar(512),
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "reviews_user_course_unique"
+ON "public"."reviews" ("user_id", "course_id");
+
+CREATE INDEX "reviews_course_id_idx" ON "public"."reviews" ("course_id");
+CREATE INDEX "reviews_user_id_idx" ON "public"."reviews" ("user_id");
+
+CREATE TABLE "public"."course_progress" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" uuid NOT NULL,
+    "course_id" uuid NOT NULL,
+    "last_content_id" uuid,
+    "progress_percentage" int NOT NULL DEFAULT 0,
+    "last_accessed_at" timestamptz,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "course_progress_user_course_unique"
+ON "public"."course_progress" ("user_id", "course_id");
+
+CREATE INDEX "course_progress_user_id_idx" ON "public"."course_progress" ("user_id");
+CREATE INDEX "course_progress_course_id_idx" ON "public"."course_progress" ("course_id");
+CREATE INDEX "course_progress_last_accessed_at_idx" ON "public"."course_progress" ("last_accessed_at");
+
+CREATE TABLE "public"."content_progress" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" uuid NOT NULL,
+    "content_id" uuid NOT NULL,
+    "is_completed" boolean NOT NULL DEFAULT false,
+    "watched_seconds" int NOT NULL DEFAULT 0,
+    "completed_at" timestamptz,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "content_progress_user_content_unique"
+ON "public"."content_progress" ("user_id", "content_id");
+
+CREATE INDEX "content_progress_user_id_idx" ON "public"."content_progress" ("user_id");
+CREATE INDEX "content_progress_content_id_idx" ON "public"."content_progress" ("content_id");
+
+CREATE TABLE "public"."user_activity" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" uuid NOT NULL,
+    "activity_date" date NOT NULL,
+    "minutes_studied" int NOT NULL DEFAULT 0,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "user_activity_user_date_unique"
+ON "public"."user_activity" ("user_id", "activity_date");
+
+CREATE INDEX "user_activity_user_id_idx" ON "public"."user_activity" ("user_id");
+CREATE INDEX "user_activity_activity_date_idx" ON "public"."user_activity" ("activity_date");
+
+CREATE TABLE "public"."user_goals" (
+    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" uuid NOT NULL,
+    "target_minutes" int NOT NULL,
+    "week_start" date NOT NULL,
+    "week_end" date NOT NULL,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "user_goals_user_week_unique"
+ON "public"."user_goals" ("user_id", "week_start");
+
+CREATE INDEX "user_goals_user_id_idx" ON "public"."user_goals" ("user_id");
+
+ALTER TABLE "public"."cart"
+  ADD CONSTRAINT "fk_cart_course_id_courses_id"
+  FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id");
+
+ALTER TABLE "public"."cart"
+  ADD CONSTRAINT "fk_cart_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."course_contents"
+  ADD CONSTRAINT "fk_course_contents_section_id_course_sections_id"
+  FOREIGN KEY ("section_id") REFERENCES "public"."course_sections"("id");
+
+ALTER TABLE "public"."course_purchase"
+  ADD CONSTRAINT "fk_course_purchase_course_id_courses_id"
+  FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id");
+
+ALTER TABLE "public"."course_purchase"
+  ADD CONSTRAINT "fk_course_purchase_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."course_sections"
+  ADD CONSTRAINT "fk_course_sections_course_id_courses_id"
+  FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id");
+
+ALTER TABLE "public"."courses"
+  ADD CONSTRAINT "fk_courses_category_id_categories_id"
+  FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id");
+
+ALTER TABLE "public"."courses"
+  ADD CONSTRAINT "fk_courses_created_by_users_id"
+  FOREIGN KEY ("created_by") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."reviews"
+  ADD CONSTRAINT "fk_reviews_course_id_courses_id"
+  FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id");
+
+ALTER TABLE "public"."reviews"
+  ADD CONSTRAINT "fk_reviews_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."session"
+  ADD CONSTRAINT "fk_session_userId_users_id"
+  FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE CASCADE;
+
+ALTER TABLE "public"."transactions"
+  ADD CONSTRAINT "fk_transactions_course_id_courses_id"
+  FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id");
+
+ALTER TABLE "public"."transactions"
+  ADD CONSTRAINT "fk_transactions_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."course_progress"
+  ADD CONSTRAINT "fk_course_progress_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."course_progress"
+  ADD CONSTRAINT "fk_course_progress_course_id_courses_id"
+  FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id");
+
+ALTER TABLE "public"."course_progress"
+  ADD CONSTRAINT "fk_course_progress_last_content_id_course_contents_id"
+  FOREIGN KEY ("last_content_id") REFERENCES "public"."course_contents"("id");
+
+ALTER TABLE "public"."content_progress"
+  ADD CONSTRAINT "fk_content_progress_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."content_progress"
+  ADD CONSTRAINT "fk_content_progress_content_id_course_contents_id"
+  FOREIGN KEY ("content_id") REFERENCES "public"."course_contents"("id");
+
+ALTER TABLE "public"."user_activity"
+  ADD CONSTRAINT "fk_user_activity_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
+
+ALTER TABLE "public"."user_goals"
+  ADD CONSTRAINT "fk_user_goals_user_id_users_id"
+  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id");
