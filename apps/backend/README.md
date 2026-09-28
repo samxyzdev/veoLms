@@ -43,4 +43,28 @@ R2_PUBLIC_URL=https://media.example.com
 ```
 
 Configure CORS on that R2 bucket to allow `PUT` requests from the frontend
-origin (for local development, commonly `http://localhost:5173`).
+origin. This is separate from the Express API CORS configuration because the
+browser uploads the video directly to R2. In the Cloudflare dashboard, open
+the bucket's **Settings → CORS Policy** and use a rule such as this (replace
+the production URL with the exact frontend origin):
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://app.example.com"
+    ],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Origins must match exactly: include the protocol and development port, but do
+not add a trailing slash or a path. The application signs each URL with the
+video's `Content-Type`, so that same `Content-Type` header must remain allowed
+by the bucket policy.

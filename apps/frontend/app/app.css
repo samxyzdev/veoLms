@@ -1,28 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-
-  /* Learnova brand palette (taken from the landing page design) */
-  --color-brand: #8b73fb; /* primary accent */
-  --color-brand-hover: #7a63f0;
-  --color-brand-ink: #332c5c; /* badge / icon tile background */
-  --color-brand-light: #b3a6ff; /* badge text / icon strokes */
-
-  --color-base: #0d1117; /* page background */
-  --color-surface: #1c2129; /* cards */
-  --color-surface-hover: #232a34;
-  --color-line: #262e3c; /* borders & dividers */
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 html,
 body {
-  @apply bg-base text-gray-300 antialiased;
-  color-scheme: dark;
+  margin: 0;
+  padding: 0;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  background: #f7f8fc;
 }
 
-/* Keep anchored sections clear of the sticky header when jumping via nav links */
-:where([id]) {
-  scroll-margin-top: 4.5rem;
+* {
+  box-sizing: border-box;
 }

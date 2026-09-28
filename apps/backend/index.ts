@@ -11,6 +11,7 @@ import { courseRoutes } from "./routes/courseRoutes";
 import { adminDashboardRoutes } from "./routes/adminDashboardRoutes";
 import { adminAuthRoutes } from "./routes/adminAuthRoutes";
 import { adminRoutes } from "./routes/adminRoutes";
+import { dashboardRoutes } from "./routes/dashboardStatsRoutes";
 
 const cookieSecret = process.env.COOKIE_SECRET;
 if (!cookieSecret) {
@@ -25,28 +26,24 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 const app = express();
 
 app.use(express.json());
+
 // Auth uses an httpOnly cookie, so requests carry credentials and CORS cannot
-// use "*". Allow the frontend dev server (any localhost port) plus any origin
-// listed in CORS_ORIGINS (comma separated) for production.
+// use "*". Allow local frontend dev servers (including 127.0.0.1) plus any
+// origin listed in CORS_ORIGINS (comma separated) for production.
+const allowedOrigins = process.env.CORS_ORIGINS?.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
-        .split(",")
-        .map((entry) => entry.trim())
-        .filter(Boolean);
-
-      // No Origin header = same-origin request / curl / mobile client.
-      if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Origin not allowed by CORS"));
-    },
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
+
 app.use(cookieParser(cookieSecret));
 
+app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/otp", otpRoutes);
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/course", courseRoutes);

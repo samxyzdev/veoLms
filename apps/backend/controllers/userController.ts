@@ -1,6 +1,13 @@
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
-import { asc, db, eq, otpTable, sessionTable, usersTable } from "@repo/database";
+import {
+  asc,
+  db,
+  eq,
+  otpTable,
+  sessionTable,
+  usersTable,
+} from "@repo/database";
 import {
   OtpSchema,
   ResetPasswordSchema,
@@ -14,6 +21,7 @@ import { hashFunction } from "../utilities/hashFunction";
 import { generateOtp } from "../utilities/randomOtp";
 import { sendEmail } from "../utilities/sendEmail";
 import { verifyOtp } from "../utilities/verifyOtp";
+import { generateCodeVerifier, generateState, Google } from "arctic";
 
 const PASSWORD_RESET_RESPONSE =
   "If an account exists for that email, a verification code has been sent.";
@@ -84,7 +92,10 @@ export const confirmPasswordReset = async (
 
     const [user] = await db
       .update(usersTable)
-      .set({ password: await bcrypt.hash(newPassword, 10), updatedAt: new Date() })
+      .set({
+        password: await bcrypt.hash(newPassword, 10),
+        updatedAt: new Date(),
+      })
       .where(eq(usersTable.email, email))
       .returning({ id: usersTable.id });
 
@@ -162,9 +173,11 @@ export const signIn = async (req: Request, res: Response) => {
     .orderBy(asc(sessionTable.createdAt));
   if (sessions.length >= 2) {
     await Promise.all(
-      sessions.slice(0, sessions.length - 1).map((session) =>
-        db.delete(sessionTable).where(eq(sessionTable.id, session.id)),
-      ),
+      sessions
+        .slice(0, sessions.length - 1)
+        .map((session) =>
+          db.delete(sessionTable).where(eq(sessionTable.id, session.id)),
+        ),
     );
   }
 

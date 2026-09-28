@@ -19,7 +19,7 @@ export const generateOtpForEmail = async (req: Request, res: Response) => {
   const otp = generateOtp(6);
 
   try {
-    await db.delete(otpTable).where(eq(otpTable.email, email));
+    // await db.delete(otpTable).where(eq(otpTable.email, email));
     await db.insert(otpTable).values({
       email,
       hashOtp: hashFunction(otp),

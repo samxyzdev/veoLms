@@ -1,50 +1,127 @@
 import * as z from "zod";
 
-export const OtpSchema = z.object({
-  email: z.email().trim().toLowerCase(),
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const nameSchema = z
+  .string()
+  .trim()
+  .min(3, "Name must be at least 3 characters")
+  .max(100, "Name must be at most 100 characters")
+  // Supports normal names including spaces, apostrophes, hyphens and Unicode.
+  .regex(/^[\p{L}\p{M} .'-]+$/u, "Name contains invalid characters");
+
+const emailSchema = z.email("Enter a valid email address").trim().toLowerCase();
+
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be at most 128 characters")
+  .regex(/[a-z]/, "Password must contain a lowercase letter")
+  .regex(/[A-Z]/, "Password must contain an uppercase letter")
+  .regex(/\d/, "Password must contain a number")
+  .regex(/[^A-Za-z0-9]/, "Password must contain a special character");
+
+const otpSchema = z.string().regex(/^\d{6}$/, "OTP must be exactly 6 digits");
+
+const roleSchema = z.enum(["user", "admin", "course_creator"]);
+
+/* -------------------------------------------------------------------------- */
+/* Auth                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const OtpSchema = z.strictObject({
+  email: emailSchema,
 });
 
-export const SignupSchema = z.object({
-  name: z.string().min(3, "Too short").max(25),
-  email: z.email().min(3, "Too short").max(25).trim().toLowerCase(),
-  password: z.string().min(8).max(30),
-  otp: z.string().min(6).max(6),
+export const SignupSchema = z.strictObject({
+  name: nameSchema,
+  email: emailSchema,
+  password: passwordSchema,
+  otp: otpSchema,
 });
 
-export const SigninSchema = z.object({
-  email: z.email().min(3, "Too short").max(25).trim().toLowerCase(),
-  password: z.string().min(8).max(30),
+export const SigninSchema = z.strictObject({
+  email: emailSchema,
+  password: z.string().min(1, "Password is required"),
 });
 
-export const ResetPasswordSchema = z.object({
-  email: z.email().trim().toLowerCase(),
-  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
-  newPassword: z.string().min(8).max(30),
+export const ResetPasswordSchema = z.strictObject({
+  email: emailSchema,
+  otp: otpSchema,
+  newPassword: passwordSchema,
 });
 
-export const UserSchema = z.object({
-  name: z.string().trim().min(3).max(255),
-  email: z.email().toLowerCase().trim(),
-  password: z.string().min(8).max(512),
-  role: z.enum(["user", "admin", "course_creator"]).default("user"),
+/* -------------------------------------------------------------------------- */
+/* User                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const UserSchema = z.strictObject({
+  name: nameSchema,
+  email: emailSchema,
+  password: z.string().min(8).max(128),
+  role: roleSchema.default("user"),
 });
 
-export const CategoriesSchema = z.object({
-  name: z.string().trim().min(3).max(255),
+/* -------------------------------------------------------------------------- */
+/* Categories                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export const CategoriesSchema = z.strictObject({
+  name: z
+    .string()
+    .trim()
+    .min(3, "Category name must be at least 3 characters")
+    .max(100, "Category name must be at most 100 characters"),
 });
 
-export const CourseSchema = z.object({
-  title: z.string().min(3).max(255),
-  description: z.string(),
-  price: z.string(),
+/* -------------------------------------------------------------------------- */
+/* Course                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export const CourseSchema = z.strictObject({
+  title: z
+    .string()
+    .trim()
+    .min(3, "Course title must be at least 3 characters")
+    .max(255, "Course title must be at most 255 characters"),
+
+  description: z.string().trim().max(5000, "Description is too long"),
+
+  price: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,2})?$/, "Price must be a valid amount")
+    .refine((value) => Number(value) >= 0, "Price cannot be negative"),
 });
 
-export const CreateCourseSchema = z.object({
-  title: z.string().trim().min(3).max(255),
-  description: z.string().trim().max(1000).optional(),
-  price: z.number().int().min(0),
-  courseLanguage: z.string().trim().min(1).max(50),
-  categoryId: z.uuid(),
+export const CreateCourseSchema = z.strictObject({
+  title: z
+    .string()
+    .trim()
+    .min(3, "Course title must be at least 3 characters")
+    .max(255, "Course title must be at most 255 characters"),
+
+  description: z
+    .string()
+    .trim()
+    .max(1000, "Description must be at most 1000 characters")
+    .optional(),
+
+  price: z
+    .number()
+    .finite()
+    .min(0, "Price cannot be negative")
+    .max(10_000_000, "Price is too large"),
+
+  courseLanguage: z
+    .string()
+    .trim()
+    .min(1, "Course language is required")
+    .max(50, "Course language is too long"),
+
+  categoryId: z.uuid("Invalid category ID"),
 });
 
 export const UpdateCourseSchema = CreateCourseSchema.partial().refine(
@@ -52,79 +129,166 @@ export const UpdateCourseSchema = CreateCourseSchema.partial().refine(
   "Provide at least one field to update",
 );
 
-export const CreateCourseVideoSchema = z.object({
-  sectionTitle: z.string().trim().min(1).max(255),
-  title: z.string().trim().min(1).max(255),
-  contentUrl: z.url().max(2000),
+/* -------------------------------------------------------------------------- */
+/* Course content                                                             */
+/* -------------------------------------------------------------------------- */
+
+export const CreateCourseVideoSchema = z.strictObject({
+  sectionTitle: z.string().trim().min(1, "Section title is required").max(255),
+
+  title: z.string().trim().min(1, "Video title is required").max(255),
+
+  contentUrl: z.httpUrl("Content URL must be a valid HTTP/HTTPS URL").max(2000),
 });
 
-export const CourseSectionSchema = z.object({
-  title: z.string(),
+export const CourseSectionSchema = z.strictObject({
+  title: z.string().trim().min(1, "Section title is required").max(255),
 });
 
-export const CourseContentSchema = z.object({
-  title: z.string(),
-  contentType: z.string(),
-  contentUrl: z.string(),
-});
-export const CommentAndReviewsSchema = z.object({
-  comment: z.string().max(512),
-  rating: z.number().max(5),
+export const CourseContentSchema = z.strictObject({
+  title: z.string().trim().min(1, "Content title is required").max(255),
+
+  contentType: z.enum(["video", "article", "quiz", "assignment"]),
+
+  contentUrl: z.httpUrl().max(2000).optional(),
 });
 
-export const ParamSchema = z.object({
-  courseId: z.uuid(),
+/* -------------------------------------------------------------------------- */
+/* Reviews / Comments                                                         */
+/* -------------------------------------------------------------------------- */
+
+export const CommentAndReviewsSchema = z.strictObject({
+  comment: z
+    .string()
+    .trim()
+    .min(1, "Comment cannot be empty")
+    .max(512, "Comment is too long"),
+
+  rating: z
+    .number()
+    .int("Rating must be a whole number")
+    .min(1, "Rating must be at least 1")
+    .max(5, "Rating cannot be greater than 5"),
 });
 
-export const PurchaseCourseSchema = z.object({
-  courseId: z.uuid(),
+/* -------------------------------------------------------------------------- */
+/* Params                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export const ParamSchema = z.strictObject({
+  courseId: z.uuid("Invalid course ID"),
 });
 
-export const UpdateRoleSchema = z.object({
-  role: z.enum(["user", "course_creator", "admin"]),
+export const PurchaseCourseSchema = z.strictObject({
+  courseId: z.uuid("Invalid course ID"),
 });
 
-export const ContentProgressParamSchema = z.object({
-  contentId: z.uuid(),
+export const ContentProgressParamSchema = z.strictObject({
+  contentId: z.uuid("Invalid content ID"),
 });
 
-/**
- * Progress report sent by the course player. `isCompleted` is omitted when the
- * player is only saving the watch position; sending it flips the lecture's
- * completed state explicitly (both ways).
- */
-export const ContentProgressSchema = z.object({
-  watchedSeconds: z.number().int().min(0).max(24 * 60 * 60),
+/* -------------------------------------------------------------------------- */
+/* Role                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const UpdateRoleSchema = z.strictObject({
+  role: roleSchema,
+});
+
+/* -------------------------------------------------------------------------- */
+/* Progress                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const ContentProgressSchema = z.strictObject({
+  /**
+   * Number of seconds watched.
+   */
+  watchedSeconds: z
+    .number()
+    .int("Watched seconds must be an integer")
+    .min(0)
+    .max(24 * 60 * 60),
+
+  /**
+   * Omitted when only saving watch position.
+   */
   isCompleted: z.boolean().optional(),
 });
 
-export const StudyActivitySchema = z.object({
-  /** Minutes studied. Several logs for the same day add up. */
-  minutes: z.number().int().min(1).max(24 * 60),
-  /** `YYYY-MM-DD`; defaults to today when omitted. */
-  activityDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")
-    .optional(),
+export const StudyActivitySchema = z.strictObject({
+  /**
+   * Minutes studied.
+   */
+  minutes: z
+    .number()
+    .int("Minutes must be an integer")
+    .min(1, "Minutes must be at least 1")
+    .max(24 * 60),
+
+  /**
+   * YYYY-MM-DD
+   */
+  activityDate: z.iso.date("Expected YYYY-MM-DD").optional(),
 });
 
-export const WeeklyGoalSchema = z.object({
-  /** Weekly study target in minutes (max 7 days × 24 hours). */
-  targetMinutes: z.number().int().min(1).max(7 * 24 * 60),
+export const WeeklyGoalSchema = z.strictObject({
+  /**
+   * Weekly target in minutes.
+   */
+  targetMinutes: z
+    .number()
+    .int("Target must be an integer")
+    .min(1)
+    .max(7 * 24 * 60),
 });
+
+/* -------------------------------------------------------------------------- */
+/* Profile                                                                    */
+/* -------------------------------------------------------------------------- */
 
 export const UpdateProfileSchema = z
-  .object({
-    name: z.string().trim().min(3).max(255).optional(),
-    email: z.email().trim().toLowerCase().optional(),
-    currentPassword: z.string().min(8).max(30).optional(),
-    newPassword: z.string().min(8).max(30).optional(),
+  .strictObject({
+    name: nameSchema.optional(),
+
+    email: emailSchema.optional(),
+
+    currentPassword: z.string().min(8).max(128).optional(),
+
+    newPassword: passwordSchema.optional(),
   })
   .refine(
-    (data) => data.name !== undefined || data.email !== undefined || data.newPassword !== undefined,
-    "Nothing to update",
+    (data) =>
+      data.name !== undefined ||
+      data.email !== undefined ||
+      data.newPassword !== undefined,
+    {
+      message: "Nothing to update",
+    },
   )
   .refine(
-    (data) => data.newPassword === undefined || data.currentPassword !== undefined,
-    "Current password is required to set a new password",
+    (data) =>
+      data.newPassword === undefined || data.currentPassword !== undefined,
+    {
+      message: "Current password is required to set a new password",
+      path: ["currentPassword"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.newPassword === undefined ||
+      data.newPassword !== data.currentPassword,
+    {
+      message: "New password must be different from current password",
+      path: ["newPassword"],
+    },
   );
+
+/* -------------------------------------------------------------------------- */
+/* Useful inferred types                                                      */
+/* -------------------------------------------------------------------------- */
+
+export type SignupInput = z.infer<typeof SignupSchema>;
+export type SigninInput = z.infer<typeof SigninSchema>;
+export type CreateCourseInput = z.infer<typeof CreateCourseSchema>;
+export type UpdateCourseInput = z.infer<typeof UpdateCourseSchema>;
+export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;

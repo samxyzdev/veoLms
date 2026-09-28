@@ -25,6 +25,11 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "refunded",
 ]);
 
+export const providerEnum = pgEnum("oauth_provider", [
+  "google",
+  "github",
+  "discord",
+]);
 export const usersTable = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
   name: varchar({ length: 255 }).notNull(),
@@ -411,4 +416,28 @@ export const userGoalsTable = pgTable(
 
     index("user_goals_user_id_idx").on(table.userId),
   ],
+);
+
+export const oauthAccountsTable = pgTable(
+  "oauth_account_table",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => usersTable.id, {
+        onDelete: "cascade",
+      }),
+
+    provider: providerEnum().notNull(),
+
+    providerAccountId: varchar("provider_account_id", {
+      length: 255,
+    }).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [unique().on(table.provider, table.providerAccountId)],
 );

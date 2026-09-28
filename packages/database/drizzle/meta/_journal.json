@@ -22,6 +22,13 @@
       "when": 1789841353288,
       "tag": "0002_brief_carmella_unuscione",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790530594117,
+      "tag": "0003_simple_slyde",
+      "breakpoints": true
     }
   ]
 }
