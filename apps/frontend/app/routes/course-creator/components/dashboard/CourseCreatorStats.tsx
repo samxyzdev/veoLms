@@ -24,7 +24,7 @@ const iconStyles = {
   orange: "bg-orange-50 text-orange-500",
 };
 
-export function AdminStats() {
+export function CourseCreatorStats() {
   return (
     <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {adminData.stats.map((stat) => {

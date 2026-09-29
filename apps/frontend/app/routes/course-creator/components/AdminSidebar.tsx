@@ -77,7 +77,7 @@ const adminNavigation = [
   },
 ];
 
-export function AdminSidebar() {
+export function CourseCreatorSidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[250px] border-r border-slate-200 bg-white lg:flex lg:flex-col">
       {/* Logo */}

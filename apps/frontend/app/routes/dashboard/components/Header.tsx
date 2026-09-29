@@ -1,8 +1,17 @@
-import { Bell, ChevronDown, LogOut, Search, Settings } from "lucide-react";
+// app/routes/dashboard/components/Header.tsx
+
+import {
+  Bell,
+  ChevronDown,
+  CircleHelp,
+  GraduationCap,
+  LogOut,
+  Search,
+  Settings,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-
-import { dashboardData } from "../data/dashboardData";
 
 type User = {
   id: string;
@@ -17,8 +26,35 @@ type HeaderProps = {
   user: User;
 };
 
+function getInitials(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "U"
+  );
+}
+
+function getRoleLabel(role: User["role"]) {
+  switch (role) {
+    case "admin":
+      return "Admin";
+
+    case "course_creator":
+      return "Course Creator";
+
+    default:
+      return "Student";
+  }
+}
+
 export function Header({ user }: HeaderProps) {
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const initials = getInitials(user.name);
+  const roleLabel = getRoleLabel(user.role);
 
   return (
     <header className="border-b border-slate-100 bg-white">
@@ -35,7 +71,7 @@ export function Header({ user }: HeaderProps) {
         {/* Search */}
         <div className="hidden max-w-md flex-1 md:flex">
           <div className="flex h-11 w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4">
-            <Search size={17} className="text-slate-400" />
+            <Search size={17} className="shrink-0 text-slate-400" />
 
             <input
               type="text"
@@ -54,6 +90,7 @@ export function Header({ user }: HeaderProps) {
           {/* Notifications */}
           <button
             type="button"
+            aria-label="Notifications"
             className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
           >
             <Bell size={18} />
@@ -66,21 +103,20 @@ export function Header({ user }: HeaderProps) {
             <button
               type="button"
               onClick={() => setProfileOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-xl p-1.5 transition hover:bg-slate-50"
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+              className="flex items-center gap-2 rounded-xl p-1.5 transition hover:bg-slate-100 cursor-pointer"
             >
+              {/* Avatar */}
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
-                {user.name
-                  .trim()
-                  .split(/\s+/)
-                  .slice(0, 2)
-                  .map((name) => name[0])
-                  .join("")}
+                {initials}
               </div>
 
+              {/* Name + role */}
               <div className="hidden text-left sm:block">
                 <p className="text-xs font-bold text-slate-900">{user.name}</p>
 
-                <p className="text-[10px] text-slate-400">Student</p>
+                <p className="text-[10px] text-slate-400">{roleLabel}</p>
               </div>
 
               <ChevronDown
@@ -91,46 +127,117 @@ export function Header({ user }: HeaderProps) {
               />
             </button>
 
-            {/* Dropdown */}
+            {/* Profile Dropdown */}
+            {/* Profile Dropdown */}
             {profileOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-200/50">
-                {/* User info */}
-                <div className="border-b border-slate-100 px-3 py-2.5">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {user.name}
-                  </p>
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-50 mt-2 w-[280px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+              >
+                {/* Profile summary */}
+                <div className="mb-1 rounded-xl px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600">
+                      {initials}
+                    </div>
 
-                  <p className="mt-0.5 truncate text-xs text-slate-400">
-                    {user.email}
-                  </p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {user.name}
+                      </p>
+
+                      <p className="truncate text-xs text-slate-400">
+                        {user.email}
+                      </p>
+
+                      <span className="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600">
+                        {roleLabel}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Settings */}
-                <Link
-                  to="/dashboard/settings"
-                  onClick={() => setProfileOpen(false)}
-                  className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                >
-                  <Settings size={17} className="text-slate-400" />
+                <div className="border-t border-slate-100 pt-1">
+                  {/* My Profile */}
+                  <Link
+                    to="/dashboard/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    <UserRound
+                      size={17}
+                      className="text-slate-400 transition-colors group-hover:text-indigo-500"
+                    />
 
-                  <span>Settings</span>
-                </Link>
+                    <span>My Profile</span>
+                  </Link>
 
-                {/* Logout */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProfileOpen(false);
+                  {/* Settings */}
+                  <Link
+                    to="/dashboard/settings"
+                    onClick={() => setProfileOpen(false)}
+                    className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    <Settings
+                      size={17}
+                      className="text-slate-400 transition-colors group-hover:text-indigo-500"
+                    />
 
-                    // Logout API yahan call karna
-                    console.log("Logout");
-                  }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                >
-                  <LogOut size={17} />
+                    <span>Settings</span>
+                  </Link>
 
-                  <span>Logout</span>
-                </button>
+                  {/* Become a Course Creator */}
+                  {user.role === "user" && (
+                    <Link
+                      to="/dashboard/become-course-creator"
+                      onClick={() => setProfileOpen(false)}
+                      className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                    >
+                      <GraduationCap
+                        size={17}
+                        className="transition-colors group-hover:text-indigo-600"
+                      />
+
+                      <span>Become a Course Creator</span>
+                    </Link>
+                  )}
+
+                  {/* Help & Support */}
+                  <Link
+                    to="/dashboard/help"
+                    onClick={() => setProfileOpen(false)}
+                    className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    <CircleHelp
+                      size={17}
+                      className="text-slate-400 transition-colors group-hover:text-indigo-500"
+                    />
+
+                    <span>Help & Support</span>
+                  </Link>
+
+                  {/* Divider */}
+                  <div className="my-1 border-t border-slate-100" />
+
+                  {/* Sign out */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileOpen(false);
+
+                      // Logout API
+                      console.log("Logout");
+                    }}
+                    className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                  >
+                    <LogOut
+                      size={17}
+                      className="text-red-500 transition-colors group-hover:text-red-600"
+                    />
+
+                    <span>Sign out</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

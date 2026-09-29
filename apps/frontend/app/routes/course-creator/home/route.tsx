@@ -1,7 +1,7 @@
 // app/routes/admin/home/route.tsx
 
-import { AdminDashboardHeader } from "../components/dashboard/AdminDashboardHeader";
-import { AdminStats } from "../components/dashboard/AdminStats";
+import { CourseCreatorDashboardHeader } from "../components/dashboard/CourseCreatorDashboardHeader";
+import { CourseCreatorStats } from "../components/dashboard/CourseCreatorStats";
 import { CourseCategories } from "../components/dashboard/CourseCategories";
 import { EnrollmentOverview } from "../components/dashboard/EnrollmentOverview";
 import { PopularCourses } from "../components/dashboard/PopularCourses";
@@ -12,10 +12,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <AdminDashboardHeader />
+      <CourseCreatorDashboardHeader />
 
       {/* Stats */}
-      <AdminStats />
+      <CourseCreatorStats />
 
       {/* Enrollment + Popular Courses */}
       <div className="grid gap-5 xl:grid-cols-[1.65fr_1fr]">

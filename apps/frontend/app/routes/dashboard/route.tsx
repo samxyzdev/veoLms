@@ -6,6 +6,7 @@ import { Sidebar } from "./components/Sidebar";
 import { api } from "~/lib/axios";
 import type { Route } from "./+types/route";
 
+// ye email name bhi chek kar rha hai or use direct dashbaord pe jaa sakta hai ki nahi wo bhi chek kar rha hai.
 export async function clientLoader() {
   try {
     const response = await api.get("/user/me");

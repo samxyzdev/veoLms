@@ -5,7 +5,7 @@ import { Link } from "react-router";
 
 import { adminData } from "../../data/adminData";
 
-export function AdminDashboardHeader() {
+export function CourseCreatorDashboardHeader() {
   return (
     <section className="mb-5">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">

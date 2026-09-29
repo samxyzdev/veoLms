@@ -1,16 +1,18 @@
 import { useState, type ChangeEvent } from "react";
+
 import { Form, Link, redirect, useNavigation } from "react-router";
+
 import { z } from "zod";
+
 import axios from "axios";
 
-import { AuthDivider } from "../components/AuthDivider";
-import { AuthFooter } from "../components/AuthFooter";
-import { AuthInput } from "../components/AuthInput";
-import { AuthLayout } from "../components/AuthLayout";
-import { SocialButtons } from "../components/SocialButtons";
-
 import { api } from "~/lib/axios";
-import type { Route } from "./+types/route";
+import { AuthLayout } from "../../components/AuthLayout";
+import { SocialButtons } from "../../components/SocialButtons";
+import { AuthDivider } from "../../components/AuthDivider";
+import { AuthInput } from "../../components/AuthInput";
+import { AuthFooter } from "../../components/AuthFooter";
+import type { Route } from "../signup/+types/route";
 
 /* =========================================================
    Signin Schema
@@ -71,6 +73,7 @@ function validateSigninForm(form: FormState): ValidationResult {
     const fieldErrors = z.flattenError(result.error).fieldErrors;
 
     errors.email = fieldErrors.email?.[0];
+
     errors.password = fieldErrors.password?.[0];
   }
 
@@ -91,7 +94,9 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
   const formData = await request.formData();
 
   const email = formData.get("email");
+
   const password = formData.get("password");
+
   const rememberMe = formData.get("rememberMe") === "on";
 
   /* -------------------------------------------------------
@@ -108,6 +113,7 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
 
     return {
       fieldErrors: errors.fieldErrors,
+
       formErrors: errors.formErrors,
     };
   }
@@ -117,16 +123,20 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
   ------------------------------------------------------- */
 
   try {
-    await api.post("/user/signin", {
+    await api.post("/course-creator/signin", {
       email: result.data.email,
+
       password: result.data.password,
+
+      rememberMe,
     });
 
-    return redirect("/dashboard");
+    return redirect("/course-creator");
   } catch (error) {
     if (axios.isAxiosError(error)) {
       return {
         fieldErrors: {},
+
         formErrors: [
           error.response?.data?.message ?? "Invalid email or password",
         ],
@@ -135,6 +145,7 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
 
     return {
       fieldErrors: {},
+
       formErrors: ["Something went wrong. Please try again."],
     };
   }
@@ -157,7 +168,9 @@ export default function SignIn({
 
   const [form, setForm] = useState<FormState>({
     email: "",
+
     password: "",
+
     rememberMe: false,
   });
 
@@ -167,6 +180,7 @@ export default function SignIn({
 
   const [touched, setTouched] = useState<TouchedState>({
     email: false,
+
     password: false,
   });
 
@@ -191,6 +205,7 @@ export default function SignIn({
 
     setForm((prev) => ({
       ...prev,
+
       [name]: type === "checkbox" ? checked : value,
     }));
   };
@@ -202,6 +217,7 @@ export default function SignIn({
   const handleBlur = (field: keyof TouchedState) => {
     setTouched((prev) => ({
       ...prev,
+
       [field]: true,
     }));
   };
@@ -230,8 +246,8 @@ export default function SignIn({
 
   return (
     <AuthLayout
-      title="Welcome back"
-      description="Sign in to continue your learning journey."
+      title="Welcome back, Creator"
+      description="Sign in to manage your courses and continue teaching."
     >
       <SocialButtons />
 
@@ -340,10 +356,14 @@ export default function SignIn({
         </button>
       </Form>
 
+      {/* ===================================================
+          Footer
+      =================================================== */}
+
       <AuthFooter
-        text="Don't have an account?"
-        linkText="Create account"
-        linkTo="/signup"
+        text="Don't have a creator account?"
+        linkText="Create creator account"
+        linkTo="/course-creator/signup"
       />
     </AuthLayout>
   );
