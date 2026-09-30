@@ -8,11 +8,14 @@ import {
   courseSectionsTable,
   coursesTable,
   db,
+  desc,
   eq,
   reviewsTable,
   sql,
 } from "@repo/database";
-import type { Request, Response } from "express";
+
+import type { NextFunction, Request, Response } from "express";
+
 import {
   CommentAndReviewsSchema,
   ContentProgressParamSchema,
@@ -21,37 +24,90 @@ import {
   PurchaseCourseSchema,
 } from "@repo/zod";
 
-/** Course request handlers; routes are registered in `routes/courseRoutes.ts`. */
+// --------------------------------------------------
+// Helper: Current date in user's timezone
+// --------------------------------------------------
 
-// send first 10 course to frontend
-// actual video nahi jayega isme
-export const listCourses = async (_req: Request, res: Response) => {
+function getTodayDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+// --------------------------------------------------
+// Helper: Learning streak
+// --------------------------------------------------
+
+function calculateLearningStreak(activityDates: string[]): number {
+  if (activityDates.length === 0) {
+    return 0;
+  }
+
+  const today = new Date(`${getTodayDate()}T00:00:00`);
+
+  let streak = 0;
+  let expectedDate = today;
+
+  for (const activityDate of activityDates) {
+    const currentDate = new Date(`${activityDate}T00:00:00`);
+
+    const differenceInDays = Math.floor(
+      (expectedDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (differenceInDays === 0) {
+      streak++;
+      expectedDate = new Date(expectedDate);
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else if (differenceInDays > 0) {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+// --------------------------------------------------
+// Get first 10 courses
+// --------------------------------------------------
+
+export const listCourses = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const courses = await db.select().from(coursesTable).limit(10);
+
     return res.status(200).json({
-      courses,
+      data: courses,
     });
   } catch (error) {
-    // next(error);
-    return res.status(500).json({
-      message: "somethign went wrong",
-    });
+    return next(error);
   }
 };
 
-// get purchased course like history
-export const getPurchasedCourses = async (req: Request, res: Response) => {
+// --------------------------------------------------
+// Get purchased courses
+// --------------------------------------------------
+
+export const getPurchasedCourses = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const userId = req.userId;
 
   if (!userId) {
     return res.status(401).json({
-      message: "Please relogin",
+      message: "Authentication required.",
     });
   }
 
   try {
-    // Purchase rows joined with the actual course details, so the frontend
-    // can render titles/prices without a second request per course.
     const purchasedCourses = await db
       .select({
         purchaseId: coursePurchaseTable.id,
@@ -70,118 +126,102 @@ export const getPurchasedCourses = async (req: Request, res: Response) => {
       .where(eq(coursePurchaseTable.userId, userId));
 
     return res.status(200).json({
-      purchasedCourses,
+      data: purchasedCourses,
     });
   } catch (error) {
-    return res.status(500).json({
-      message: "someting went wrong",
-    });
+    return next(error);
   }
 };
 
-// purchase a course (mock checkout — real payment gateway comes later)
-export const purchaseCourse = async (req: Request, res: Response) => {
-  const userId = req.userId;
-  if (!userId) {
-    return res.status(401).json({ message: "Please relogin" });
-  }
+// --------------------------------------------------
+// Purchase course
+// --------------------------------------------------
 
-  const { success, data, error } = PurchaseCourseSchema.safeParse(req.body);
-  if (!success) {
-    return res.status(400).json({
-      message: "input details not correct",
-      errors: error,
+export const purchaseCourse = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Authentication required.",
     });
   }
 
-  const { courseId } = data;
+  const result = PurchaseCourseSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res.status(400).json({
+      message: "Validation failed.",
+      errors: result.error.flatten(),
+    });
+  }
+
+  const { courseId } = result.data;
 
   try {
     const [course] = await db
-      .select({ id: coursesTable.id })
+      .select({
+        id: coursesTable.id,
+      })
       .from(coursesTable)
-      .where(eq(coursesTable.id, courseId));
+      .where(eq(coursesTable.id, courseId))
+      .limit(1);
 
     if (!course) {
-      return res.status(404).json({ message: "Course not found" });
+      return res.status(404).json({
+        message: "Course not found.",
+      });
     }
 
     const [existingPurchase] = await db
-      .select({ id: coursePurchaseTable.id })
+      .select({
+        id: coursePurchaseTable.id,
+      })
       .from(coursePurchaseTable)
       .where(
         and(
           eq(coursePurchaseTable.userId, userId),
           eq(coursePurchaseTable.courseId, courseId),
         ),
-      );
+      )
+      .limit(1);
 
     if (existingPurchase) {
-      return res
-        .status(400)
-        .json({ message: "You have already purchased this course" });
+      return res.status(409).json({
+        message: "You have already purchased this course.",
+      });
     }
 
-    await db.insert(coursePurchaseTable).values({ userId, courseId });
+    await db.insert(coursePurchaseTable).values({
+      userId,
+      courseId,
+    });
 
     return res.status(201).json({
-      message: "Course purchased successfully",
+      message: "Course purchased successfully.",
     });
   } catch (error) {
-    return res.status(500).json({
-      message: "something went wrong",
-    });
+    return next(error);
   }
 };
 
-// comment and reviews on specific videos
-// if user have access to this course
-export const createCourseReview = async (req: Request, res: Response) => {
-  const userId = req.userId;
-  if (!userId) {
-    return res.status(401).json({
-      message: "Please relogin",
-    });
-  }
-  const paramResult = ParamSchema.safeParse(req.params);
+// --------------------------------------------------
+// Create course review
+// --------------------------------------------------
 
-  if (!paramResult.success) {
-    return res.status(400).json({
-      message: "input details not correct",
-      errors: paramResult.error,
-    });
-  }
-
-  const { courseId } = paramResult.data;
-
-  const { success, data, error } = CommentAndReviewsSchema.safeParse(req.body);
-
-  if (!success) {
-    return res.status(400).json({
-      message: "input details not correct",
-      errors: error,
-    });
-  }
-  const { comment, rating } = data;
-  // pure course pe hai particular vide pe nahi hai
-  try {
-    await db.insert(reviewsTable).values({ courseId, rating, userId, comment });
-    return res.status(200).json({
-      message: "success",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: "server error",
-    });
-  }
-};
-
-export const getCourseProgress = async (req: Request, res: Response) => {
+export const createCourseReview = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const userId = req.userId;
 
   if (!userId) {
     return res.status(401).json({
-      message: "Please relogin",
+      message: "Authentication required.",
     });
   }
 
@@ -189,15 +229,41 @@ export const getCourseProgress = async (req: Request, res: Response) => {
 
   if (!paramResult.success) {
     return res.status(400).json({
-      message: "Input details are not correct",
+      message: "Invalid course ID.",
       errors: paramResult.error.flatten(),
     });
   }
 
   const { courseId } = paramResult.data;
 
+  const bodyResult = CommentAndReviewsSchema.safeParse(req.body);
+
+  if (!bodyResult.success) {
+    return res.status(400).json({
+      message: "Validation failed.",
+      errors: bodyResult.error.flatten(),
+    });
+  }
+
+  const { comment, rating } = bodyResult.data;
+
   try {
-    // Check whether user is enrolled in the course
+    // Check whether the course exists
+    const [course] = await db
+      .select({
+        id: coursesTable.id,
+      })
+      .from(coursesTable)
+      .where(eq(coursesTable.id, courseId))
+      .limit(1);
+
+    if (!course) {
+      return res.status(404).json({
+        message: "Course not found.",
+      });
+    }
+
+    // Check whether the user purchased the course
     const [purchase] = await db
       .select({
         id: coursePurchaseTable.id,
@@ -213,11 +279,73 @@ export const getCourseProgress = async (req: Request, res: Response) => {
 
     if (!purchase) {
       return res.status(403).json({
-        message: "You are not enrolled in this course",
+        message: "You must purchase this course before reviewing it.",
       });
     }
 
-    // Get course progress
+    await db.insert(reviewsTable).values({
+      courseId,
+      rating,
+      userId,
+      comment,
+    });
+
+    return res.status(201).json({
+      message: "Review created successfully.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// --------------------------------------------------
+// Get course progress
+// --------------------------------------------------
+
+export const getCourseProgress = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Authentication required.",
+    });
+  }
+
+  const paramResult = ParamSchema.safeParse(req.params);
+
+  if (!paramResult.success) {
+    return res.status(400).json({
+      message: "Invalid course ID.",
+      errors: paramResult.error.flatten(),
+    });
+  }
+
+  const { courseId } = paramResult.data;
+
+  try {
+    const [purchase] = await db
+      .select({
+        id: coursePurchaseTable.id,
+      })
+      .from(coursePurchaseTable)
+      .where(
+        and(
+          eq(coursePurchaseTable.userId, userId),
+          eq(coursePurchaseTable.courseId, courseId),
+        ),
+      )
+      .limit(1);
+
+    if (!purchase) {
+      return res.status(403).json({
+        message: "You are not enrolled in this course.",
+      });
+    }
+
     const [progress] = await db
       .select({
         id: courseProgressTable.id,
@@ -237,42 +365,34 @@ export const getCourseProgress = async (req: Request, res: Response) => {
 
     if (!progress) {
       return res.status(404).json({
-        message: "Course progress not found",
+        message: "Course progress not found.",
       });
     }
 
     return res.status(200).json({
-      progress,
+      data: progress,
     });
   } catch (error) {
-    console.error("Get course progress error:", error);
-
-    return res.status(500).json({
-      message: "Something went wrong",
-    });
+    return next(error);
   }
 };
-/* ------------------------------------------------------------------ */
-/* Course player (video page)                                          */
-/* ------------------------------------------------------------------ */
-/*
- * The player page needs three things in one request: the course, every section
- * with its lectures (ordered), and this user's progress on each lecture.
- * `contentUrl` is only ever returned from here, and only AFTER the purchase
- * check — so lecture links never leak to someone who hasn't bought the course.
- *
- * Progress lives in two tables on purpose:
- *  - content_progress  → per lecture (watched seconds / completed)
- *  - course_progress   → per course rollup (%, last lecture, last opened at)
- * Both stay in sync from `PUT /course/content/:contentId/progress`.
- */
 
-/** Rolled-up lecture count + completion for one user on one course. */
+// --------------------------------------------------
+// Course player
+// --------------------------------------------------
+
 async function courseContentProgress(userId: string, courseId: string) {
   const [row] = await db
     .select({
       totalCount: sql<number>`count(*)::int`,
-      completedCount: sql<number>`(count(${contentProgressTable.id}) filter (where ${contentProgressTable.isCompleted}))::int`,
+      completedCount: sql<number>`
+        (
+          count(${contentProgressTable.id})
+          filter (
+            where ${contentProgressTable.isCompleted}
+          )
+        )::int
+      `,
     })
     .from(courseContentsTable)
     .innerJoin(
@@ -299,14 +419,16 @@ async function courseContentProgress(userId: string, courseId: string) {
   };
 }
 
-// Everything the player page renders: course details, sections → lectures and
-// per-lecture progress. Returns 403 unless the user owns the course.
-export const getCoursePlayer = async (req: Request, res: Response) => {
+export const getCoursePlayer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const userId = req.userId;
 
   if (!userId) {
     return res.status(401).json({
-      message: "Please relogin",
+      message: "Authentication required.",
     });
   }
 
@@ -314,7 +436,7 @@ export const getCoursePlayer = async (req: Request, res: Response) => {
 
   if (!paramResult.success) {
     return res.status(400).json({
-      message: "Input details are not correct",
+      message: "Invalid course ID.",
       errors: paramResult.error.flatten(),
     });
   }
@@ -322,9 +444,10 @@ export const getCoursePlayer = async (req: Request, res: Response) => {
   const { courseId } = paramResult.data;
 
   try {
-    // Access check comes first: only enrolled users get the lecture URLs.
     const [purchase] = await db
-      .select({ id: coursePurchaseTable.id })
+      .select({
+        id: coursePurchaseTable.id,
+      })
       .from(coursePurchaseTable)
       .where(
         and(
@@ -336,7 +459,7 @@ export const getCoursePlayer = async (req: Request, res: Response) => {
 
     if (!purchase) {
       return res.status(403).json({
-        message: "You are not enrolled in this course",
+        message: "You are not enrolled in this course.",
       });
     }
 
@@ -432,7 +555,7 @@ export const getCoursePlayer = async (req: Request, res: Response) => {
 
     if (!course) {
       return res.status(404).json({
-        message: "Course not found",
+        message: "Course not found.",
       });
     }
 
@@ -445,6 +568,7 @@ export const getCoursePlayer = async (req: Request, res: Response) => {
         .filter((content) => content.sectionId === section.id)
         .map((content) => {
           const progress = progressByContent.get(content.id);
+
           return {
             id: content.id,
             title: content.title,
@@ -475,37 +599,42 @@ export const getCoursePlayer = async (req: Request, res: Response) => {
       ).length,
       progressPercentage: 0,
     };
+
     summary.progressPercentage =
       summary.totalCount > 0
         ? Math.round((summary.completedCount / summary.totalCount) * 100)
         : 0;
 
     return res.status(200).json({
-      course: {
-        ...course,
-        ...summary,
-        lastContentId: courseProgressRows[0]?.lastContentId ?? null,
-        lastAccessedAt: courseProgressRows[0]?.lastAccessedAt ?? null,
-        sections,
+      data: {
+        course: {
+          ...course,
+          ...summary,
+          lastContentId: courseProgressRows[0]?.lastContentId ?? null,
+          lastAccessedAt: courseProgressRows[0]?.lastAccessedAt ?? null,
+          sections,
+        },
       },
     });
   } catch (error) {
-    console.error("Get course player error:", error);
-
-    return res.status(500).json({
-      message: "something went wrong",
-    });
+    return next(error);
   }
 };
 
-// Save where the user is in a lecture (and optionally mark it complete). Keeps
-// `content_progress` and the `course_progress` rollup in sync.
-export const saveContentProgress = async (req: Request, res: Response) => {
+// --------------------------------------------------
+// Save content progress
+// --------------------------------------------------
+
+export const saveContentProgress = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const userId = req.userId;
 
   if (!userId) {
     return res.status(401).json({
-      message: "Please relogin",
+      message: "Authentication required.",
     });
   }
 
@@ -513,7 +642,7 @@ export const saveContentProgress = async (req: Request, res: Response) => {
 
   if (!paramResult.success) {
     return res.status(400).json({
-      message: "Input details are not correct",
+      message: "Invalid content ID.",
       errors: paramResult.error.flatten(),
     });
   }
@@ -522,7 +651,7 @@ export const saveContentProgress = async (req: Request, res: Response) => {
 
   if (!bodyResult.success) {
     return res.status(400).json({
-      message: "Input details are not correct",
+      message: "Validation failed.",
       errors: bodyResult.error.flatten(),
     });
   }
@@ -531,10 +660,10 @@ export const saveContentProgress = async (req: Request, res: Response) => {
   const { watchedSeconds, isCompleted } = bodyResult.data;
 
   try {
-    // Which course does this lecture belong to? Needed for the ownership
-    // check and for updating the rollup row.
     const [content] = await db
-      .select({ courseId: courseSectionsTable.courseId })
+      .select({
+        courseId: courseSectionsTable.courseId,
+      })
       .from(courseContentsTable)
       .innerJoin(
         courseSectionsTable,
@@ -545,12 +674,14 @@ export const saveContentProgress = async (req: Request, res: Response) => {
 
     if (!content) {
       return res.status(404).json({
-        message: "Lecture not found",
+        message: "Lesson not found.",
       });
     }
 
     const [purchase] = await db
-      .select({ id: coursePurchaseTable.id })
+      .select({
+        id: coursePurchaseTable.id,
+      })
       .from(coursePurchaseTable)
       .where(
         and(
@@ -562,17 +693,23 @@ export const saveContentProgress = async (req: Request, res: Response) => {
 
     if (!purchase) {
       return res.status(403).json({
-        message: "You are not enrolled in this course",
+        message: "You are not enrolled in this course.",
       });
     }
 
-    // Watch position only grows (greatest) so a rewind doesn't lose it, and
-    // the completed flag is only touched when the client sends it — that's
-    // how the "mark as complete / incomplete" toggle works.
-    const watchedGreatest = sql`greatest(${contentProgressTable.watchedSeconds}, ${watchedSeconds})`;
+    const watchedGreatest = sql`
+      greatest(
+        ${contentProgressTable.watchedSeconds},
+        ${watchedSeconds}
+      )
+    `;
+
     const setValues =
       isCompleted === undefined
-        ? { watchedSeconds: watchedGreatest, updatedAt: new Date() }
+        ? {
+            watchedSeconds: watchedGreatest,
+            updatedAt: new Date(),
+          }
         : {
             watchedSeconds: watchedGreatest,
             isCompleted,
@@ -616,14 +753,13 @@ export const saveContentProgress = async (req: Request, res: Response) => {
       });
 
     return res.status(200).json({
-      message: "Progress saved",
-      progress: { ...summary, lastContentId: contentId },
+      message: "Progress saved successfully.",
+      data: {
+        ...summary,
+        lastContentId: contentId,
+      },
     });
   } catch (error) {
-    console.error("Save content progress error:", error);
-
-    return res.status(500).json({
-      message: "something went wrong",
-    });
+    return next(error);
   }
 };

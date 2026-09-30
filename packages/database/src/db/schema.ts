@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -13,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", [
-  "user",
+  "student",
   "course_creator",
   "admin",
 ]);
@@ -35,7 +36,11 @@ export const usersTable = pgTable("users", {
   name: varchar({ length: 255 }).notNull(),
   email: varchar({ length: 255 }).notNull().unique(),
   password: varchar({ length: 512 }).notNull(),
-  role: userRoleEnum().default("user").notNull(),
+  roles: userRoleEnum("roles")
+    .array()
+    .notNull()
+    .default(sql`ARRAY['student']::user_role[]`),
+
   createdAt: timestamp("created_at", {
     withTimezone: true,
   })

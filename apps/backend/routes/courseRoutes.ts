@@ -27,4 +27,8 @@ courseRoutes.get("/dashboard/stats", checkAuth, getDashboardStats);
 courseRoutes.post("/dashboard/activity", checkAuth, logStudyActivity);
 courseRoutes.put("/dashboard/goal", checkAuth, updateWeeklyGoal);
 courseRoutes.get("/:courseId/player", checkAuth, getCoursePlayer);
-courseRoutes.put("/content/:contentId/progress", checkAuth, saveContentProgress);
+courseRoutes.put(
+  "/content/:contentId/progress",
+  checkAuth,
+  saveContentProgress,
+);

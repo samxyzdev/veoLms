@@ -12,20 +12,41 @@ export const signUpAdmin = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const { success, data, error } = SignupSchema.safeParse(req.body);
-  if (!success) {
-    return res.status(400).json({ error, number: "40" });
-  }
+  const result = SignupSchema.safeParse(req.body);
 
-  const { name, email, otp, password } = data;
-  if (!(await verifyOtp(email, otp))) {
+  if (!result.success) {
     return res.status(400).json({
-      message:
-        "Invalid or expired OTP. Please enter the correct code and try again.",
+      message: "Validation failed.",
+      errors: result.error.flatten(),
     });
   }
 
+  const { name, email, otp, password } = result.data;
+
   try {
+    const otpValid = await verifyOtp(email, otp);
+
+    if (!otpValid) {
+      return res.status(400).json({
+        message:
+          "Invalid or expired OTP. Please enter the correct code and try again.",
+      });
+    }
+
+    const [existingUser] = await db
+      .select({
+        id: usersTable.id,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.email, email))
+      .limit(1);
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
     const [createdAdmin] = await db
       .insert(usersTable)
       .values({
@@ -34,15 +55,18 @@ export const signUpAdmin = async (
         password: await bcrypt.hash(password, 10),
         role: "admin",
       })
-      .returning({ insertedId: usersTable.id });
+      .returning({
+        id: usersTable.id,
+      });
 
     if (!createdAdmin) {
-      return res.status(500).json({ message: "Could not create admin account." });
+      return res.status(500).json({
+        message: "Could not create admin account.",
+      });
     }
 
     return res.status(201).json({
-      success: true,
-      message: "Admin account created successfully!",
+      message: "Admin account created successfully.",
     });
   } catch (error) {
     return next(error);
@@ -50,58 +74,77 @@ export const signUpAdmin = async (
 };
 
 /** Start a signed session only for a user with the admin role. */
-export const signInAdmin = async (req: Request, res: Response) => {
-  const { success, data, error } = SigninSchema.safeParse(req.body);
-  if (!success) {
-    return res.status(400).json({ error, number: "41" });
-  }
+export const signInAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const result = SigninSchema.safeParse(req.body);
 
-  const { email, password } = data;
-  const [user] = await db
-    .select({
-      id: usersTable.id,
-      password: usersTable.password,
-      role: usersTable.role,
-    })
-    .from(usersTable)
-    .where(eq(usersTable.email, email));
-
-  if (!user) {
+  if (!result.success) {
     return res.status(400).json({
-      message: "Account doesn't exist. Please sign up first.",
+      message: "Validation failed.",
+      errors: result.error.flatten(),
     });
   }
-  if (!(await bcrypt.compare(password, user.password))) {
-    return res.status(400).json({ message: "Invalid credentials" });
+
+  const { email, password } = result.data;
+
+  try {
+    const [user] = await db
+      .select({
+        id: usersTable.id,
+        password: usersTable.password,
+        role: usersTable.role,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.email, email))
+      .limit(1);
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    if (user.role !== "admin") {
+      return res.status(403).json({
+        message: "You do not have permission to access the admin area.",
+      });
+    }
+
+    const sessions = await db
+      .select()
+      .from(sessionTable)
+      .where(eq(sessionTable.userId, user.id))
+      .orderBy(asc(sessionTable.createdAt));
+
+    if (sessions.length >= 2 && sessions[0]) {
+      await db.delete(sessionTable).where(eq(sessionTable.id, sessions[0].id));
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await db.insert(sessionTable).values({
+      userId: user.id,
+      token: hashFunction(token),
+      expiresAt,
+    });
+
+    res.cookie("sid", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      signed: true,
+      sameSite: "lax",
+      expires: expiresAt,
+    });
+
+    return res.status(200).json({
+      message: "Signed in successfully.",
+    });
+  } catch (error) {
+    return next(error);
   }
-  if (user.role !== "admin") {
-    return res.status(403).json({ message: "This account is not an admin." });
-  }
-
-  const sessions = await db
-    .select()
-    .from(sessionTable)
-    .where(eq(sessionTable.userId, user.id))
-    .orderBy(asc(sessionTable.createdAt));
-  if (sessions.length >= 2 && sessions[0]) {
-    await db.delete(sessionTable).where(eq(sessionTable.id, sessions[0].id));
-  }
-
-  const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  await db.insert(sessionTable).values({
-    userId: user.id,
-    token: hashFunction(token),
-    expiresAt,
-  });
-
-  res.cookie("sid", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    signed: true,
-    sameSite: "lax",
-    expires: expiresAt,
-  });
-
-  return res.status(200).json({ message: "Admin signed in successfully" });
 };

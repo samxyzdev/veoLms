@@ -28,34 +28,35 @@ adminDashboardRoutes.get(
     try {
       const userId = req.userId;
 
-      // checkAuth already guarantees this
+      // checkAuth already guarantees authentication
       if (!userId) {
         return res.status(401).json({
-          message: "Please login",
+          message: "Authentication required.",
         });
       }
 
-      const [admin] = await db
+      const [course_creator] = await db
         .select({
           id: usersTable.id,
           name: usersTable.name,
           email: usersTable.email,
-          role: usersTable.role,
+          role: usersTable.roles,
         })
         .from(usersTable)
-        .where(eq(usersTable.id, userId));
+        .where(eq(usersTable.id, userId))
+        .limit(1);
 
-      if (!admin) {
-        return res.status(401).json({
-          message: "User not found",
+      if (!course_creator) {
+        return res.status(404).json({
+          message: "User not found.",
         });
       }
 
       return res.status(200).json({
-        user: admin,
+        data: course_creator,
       });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   },
 );

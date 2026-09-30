@@ -11,31 +11,32 @@ export const checkCourseCreator = async (
 
     if (!userId) {
       return res.status(401).json({
-        message: "Please relogin",
+        message: "Authentication required.",
       });
     }
 
     const [user] = await db
       .select({
-        role: usersTable.role,
+        roles: usersTable.roles,
       })
       .from(usersTable)
-      .where(eq(usersTable.id, userId));
+      .where(eq(usersTable.id, userId))
+      .limit(1);
 
     if (!user) {
-      return res.status(401).json({
-        message: "User not found",
+      return res.status(404).json({
+        message: "User not found.",
       });
     }
 
-    if (user.role !== "admin") {
+    if (!user.roles.includes("course_creator")) {
       return res.status(403).json({
-        message: "Access denied",
+        message: "You do not have permission to access this resource.",
       });
     }
 
-    next();
+    return next();
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };

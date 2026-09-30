@@ -105,7 +105,7 @@ export function Header({ user }: HeaderProps) {
               onClick={() => setProfileOpen((prev) => !prev)}
               aria-expanded={profileOpen}
               aria-haspopup="menu"
-              className="flex items-center gap-2 rounded-xl p-1.5 transition hover:bg-slate-100 cursor-pointer"
+              className="flex items-center gap-2 rounded-xl p-1.5 transition hover:bg-slate-100 cursor-poi"
             >
               {/* Avatar */}
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
@@ -189,7 +189,7 @@ export function Header({ user }: HeaderProps) {
                   {/* Become a Course Creator */}
                   {user.role === "user" && (
                     <Link
-                      to="/dashboard/become-course-creator"
+                      to="/course-creator/signup"
                       onClick={() => setProfileOpen(false)}
                       className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                     >

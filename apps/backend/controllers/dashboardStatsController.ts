@@ -9,7 +9,6 @@ import {
   db,
   desc,
   eq,
-  otpTable,
   sql,
   userActivityTable,
 } from "@repo/database";
@@ -61,18 +60,21 @@ function calculateLearningStreak(activityDates: string[]): number {
   return streak;
 }
 
-/** Create and deliver an OTP, replacing any outstanding code for the email. */
+// --------------------------------------------------
+// Dashboard Stats
+// --------------------------------------------------
+
 export async function getDashboardStats(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    // Ye tumhare auth middleware se aana chahiye
     const userId = req.userId;
+
     if (!userId) {
       return res.status(401).json({
-        message: "Please relogin",
+        message: "Authentication required.",
       });
     }
 
@@ -89,7 +91,6 @@ export async function getDashboardStats(
 
     // ----------------------------------------------
     // 2. Completed Courses
-    // progressPercentage = 100
     // ----------------------------------------------
 
     const completedCourses = await db
@@ -122,7 +123,6 @@ export async function getDashboardStats(
 
     // ----------------------------------------------
     // 4. Learning Activity
-    // Latest date first
     // ----------------------------------------------
 
     const activities = await db
@@ -146,7 +146,6 @@ export async function getDashboardStats(
     // ----------------------------------------------
 
     return res.status(200).json({
-      success: true,
       data: {
         enrolledCourses: enrolledCourses.length,
         completedCourses: completedCourses.length,
@@ -155,17 +154,25 @@ export async function getDashboardStats(
       },
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
-export async function getDashboardCourseProgress(req: Request, res: Response) {
+
+// --------------------------------------------------
+// Dashboard Course Progress
+// --------------------------------------------------
+
+export async function getDashboardCourseProgress(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
+        message: "Authentication required.",
       });
     }
 
@@ -174,7 +181,7 @@ export async function getDashboardCourseProgress(req: Request, res: Response) {
         id: coursesTable.id,
         title: coursesTable.title,
 
-        // User ka course progress
+        // User's course progress
         progress: sql<number>`
           COALESCE(
             ${courseProgressTable.progressPercentage},
@@ -190,12 +197,12 @@ export async function getDashboardCourseProgress(req: Request, res: Response) {
           )
         `.as("completed_lessons"),
 
-        // Course ke total lessons
+        // Total lessons
         totalLessons: sql<number>`
           COUNT(${courseContentsTable.id})
         `.as("total_lessons"),
 
-        // 100% hone par course complete
+        // Course completed when progress is 100%
         isCompleted: sql<boolean>`
           COALESCE(
             ${courseProgressTable.progressPercentage},
@@ -211,7 +218,7 @@ export async function getDashboardCourseProgress(req: Request, res: Response) {
         eq(coursePurchaseTable.courseId, coursesTable.id),
       )
 
-      // User specific course progress
+      // User-specific course progress
       .leftJoin(
         courseProgressTable,
         and(
@@ -232,7 +239,7 @@ export async function getDashboardCourseProgress(req: Request, res: Response) {
         eq(courseContentsTable.sectionId, courseSectionsTable.id),
       )
 
-      // User specific content progress
+      // User-specific content progress
       .leftJoin(
         contentProgressTable,
         and(
@@ -241,7 +248,7 @@ export async function getDashboardCourseProgress(req: Request, res: Response) {
         ),
       )
 
-      // Sirf current user ke purchased courses
+      // Current user's purchased courses
       .where(eq(coursePurchaseTable.userId, userId))
 
       .groupBy(
@@ -253,15 +260,10 @@ export async function getDashboardCourseProgress(req: Request, res: Response) {
       .orderBy(desc(coursesTable.createdAt));
 
     return res.status(200).json({
-      success: true,
       data: courses,
     });
   } catch (error) {
     console.error("getDashboardCourseProgress error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch course progress",
-    });
+    return next(error);
   }
 }
