@@ -40,7 +40,7 @@ adminDashboardRoutes.get(
           id: usersTable.id,
           name: usersTable.name,
           email: usersTable.email,
-          role: usersTable.roles,
+          roles: usersTable.roles,
         })
         .from(usersTable)
         .where(eq(usersTable.id, userId))

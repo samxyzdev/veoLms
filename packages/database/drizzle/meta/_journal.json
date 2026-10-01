@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1778759459759,
-      "tag": "0000_yummy_luke_cage",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1787047199061,
-      "tag": "0001_bizarre_ozymandias",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1789841353288,
-      "tag": "0002_brief_carmella_unuscione",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790530594117,
-      "tag": "0003_simple_slyde",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1790753060945,
-      "tag": "0004_chilly_young_avengers",
+      "when": 1790790122360,
+      "tag": "0000_cuddly_alex_wilder",
       "breakpoints": true
     }
   ]

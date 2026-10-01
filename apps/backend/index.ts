@@ -6,13 +6,14 @@ import express, {
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
-import { userRoutes } from "./routes/userRoutes";
+import { studentRoutes, userRoutes } from "./routes/userRoutes";
 import { otpRoutes } from "./routes/otpRoutes";
 import { courseRoutes } from "./routes/courseRoutes";
 import { adminDashboardRoutes } from "./routes/adminDashboardRoutes";
 import { adminAuthRoutes } from "./routes/adminAuthRoutes";
 import { adminRoutes } from "./routes/adminRoutes";
 import { dashboardRoutes } from "./routes/dashboardStatsRoutes";
+import { checkAuth } from "./middleware/checkAuth";
 
 const cookieSecret = process.env.COOKIE_SECRET;
 
@@ -44,12 +45,12 @@ app.use(
 app.use(cookieParser(cookieSecret));
 
 app.use("/api/v1/otp", otpRoutes);
-app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/student", studentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/course", courseRoutes);
-app.use("/api/v1/admin/auth", adminAuthRoutes);
-app.use("/api/v1/admin", adminDashboardRoutes);
-app.use("/api/v1/admin/uploads", adminRoutes);
+app.use("/api/v1/course-creator/auth", adminAuthRoutes);
+app.use("/api/v1/course-creator", adminDashboardRoutes);
+app.use("/api/v1/course-creator/uploads", adminRoutes);
 
 // 404 - Route not found
 app.use((req: Request, res: Response) => {

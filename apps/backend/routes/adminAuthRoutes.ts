@@ -1,8 +1,11 @@
 import { Router } from "express";
-import { signInAdmin, signUpAdmin } from "../controllers/adminAuthController";
+import {
+  signInCourseCreator,
+  signUpCourseCreator,
+} from "../controllers/adminAuthController";
 
 /** Admin authentication endpoint registration. */
 export const adminAuthRoutes = Router();
 
-adminAuthRoutes.post("/signup", signUpAdmin);
-adminAuthRoutes.post("/signin", signInAdmin);
+adminAuthRoutes.post("/signup", signUpCourseCreator);
+adminAuthRoutes.post("/signin", signInCourseCreator);

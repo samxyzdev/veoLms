@@ -1,14 +1,14 @@
 import { Bell, CalendarDays, ChevronDown, Search } from "lucide-react";
 
-type AdminUser = {
+type CourseCreatorUser = {
   id: string;
   name: string;
   email: string;
   role: string;
 };
 
-type AdminHeaderProps = {
-  admin: AdminUser;
+type CourseCreatorHeaderProps = {
+  courseCreator: CourseCreatorUser;
 };
 
 function getInitials(name: string) {
@@ -22,8 +22,10 @@ function getInitials(name: string) {
   );
 }
 
-export function CourseCreatorHeader({ admin }: AdminHeaderProps) {
-  const initials = getInitials(admin.name);
+export function CourseCreatorHeader({
+  courseCreator,
+}: CourseCreatorHeaderProps) {
+  const initials = getInitials(courseCreator.name);
 
   return (
     <header className="border-b border-slate-100 bg-white">
@@ -92,10 +94,10 @@ export function CourseCreatorHeader({ admin }: AdminHeaderProps) {
             {/* User info */}
             <div className="hidden text-left sm:block">
               <p className="text-xs font-extrabold text-slate-900">
-                {admin.name}
+                {courseCreator.name}
               </p>
 
-              <p className="text-[10px] text-slate-400">Administrator</p>
+              <p className="text-[10px] text-slate-400">Course Creator</p>
             </div>
 
             <ChevronDown size={14} className="hidden text-slate-400 sm:block" />

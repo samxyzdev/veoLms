@@ -1,4 +1,4 @@
-import Navbar from "~/components/Navbar";
+import Navbar from "~/routes/landing/components/Navbar";
 import { Features } from "./components/Features";
 import { Footer } from "./components/Footer";
 import { Hero } from "./components/Hero";
@@ -10,15 +10,11 @@ export default function LandingPage() {
     <>
       <Navbar />
       <Hero />
-
       <Features />
-
       <section id="pricing">
         <Pricing />
       </section>
-
       <Testimonial />
-
       <Footer />
     </>
   );

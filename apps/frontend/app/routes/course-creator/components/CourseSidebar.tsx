@@ -1,20 +1,19 @@
 import { Archive, BookOpen, ChevronDown, FileEdit, Plus } from "lucide-react";
 import { NavLink, useLocation } from "react-router";
-
 import { useEffect, useState } from "react";
 
 export function CourseSidebar() {
   const location = useLocation();
 
   const isCourseRoute =
-    location.pathname === "/admin/courses" ||
-    location.pathname === "/admin/courses/new" ||
-    location.pathname === "/admin/courses/drafts" ||
-    location.pathname === "/admin/courses/archived";
+    location.pathname === "/course-creator/courses" ||
+    location.pathname === "/course-creator/courses/new" ||
+    location.pathname === "/course-creator/courses/drafts" ||
+    location.pathname === "/course-creator/courses/archived" ||
+    location.pathname.startsWith("/course-creator/courses/");
 
   const [isOpen, setIsOpen] = useState(isCourseRoute);
 
-  // Route change hone par Courses open rahe
   useEffect(() => {
     if (isCourseRoute) {
       setIsOpen(true);
@@ -63,7 +62,7 @@ export function CourseSidebar() {
           <div className="relative ml-[22px] mt-1 space-y-1 border-l border-slate-200 pl-4">
             {/* All Courses */}
             <NavLink
-              to="/admin/courses"
+              to="/course-creator/courses"
               end
               className={({ isActive }) =>
                 `
@@ -87,7 +86,6 @@ export function CourseSidebar() {
                   />
 
                   <BookOpen size={15} />
-
                   <span>All Courses</span>
                 </>
               )}
@@ -95,7 +93,7 @@ export function CourseSidebar() {
 
             {/* Create Course */}
             <NavLink
-              to="/admin/courses/new"
+              to="/course-creator/courses/new"
               className={({ isActive }) =>
                 `
                 relative flex items-center gap-2 rounded-lg px-3 py-2.5
@@ -118,7 +116,6 @@ export function CourseSidebar() {
                   />
 
                   <Plus size={15} />
-
                   <span>Create Course</span>
                 </>
               )}
@@ -126,7 +123,8 @@ export function CourseSidebar() {
 
             {/* Drafts */}
             <NavLink
-              to="/admin/courses/drafts"
+              to="/course-creator/courses/drafts"
+              end
               className={({ isActive }) =>
                 `
                 relative flex items-center gap-2 rounded-lg px-3 py-2.5
@@ -149,7 +147,6 @@ export function CourseSidebar() {
                   />
 
                   <FileEdit size={15} />
-
                   <span>Drafts</span>
 
                   <span className="ml-auto rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-600">
@@ -161,7 +158,8 @@ export function CourseSidebar() {
 
             {/* Archived */}
             <NavLink
-              to="/admin/courses/archived"
+              to="/course-creator/courses/archived"
+              end
               className={({ isActive }) =>
                 `
                 relative flex items-center gap-2 rounded-lg px-3 py-2.5
@@ -184,7 +182,6 @@ export function CourseSidebar() {
                   />
 
                   <Archive size={15} />
-
                   <span>Archived</span>
 
                   <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">

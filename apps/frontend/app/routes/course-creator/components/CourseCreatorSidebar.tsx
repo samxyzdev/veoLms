@@ -1,78 +1,45 @@
 import {
   BarChart3,
-  Bell,
-  ClipboardList,
   GraduationCap,
   LayoutDashboard,
   Settings,
-  ShieldCheck,
-  Star,
   UserRound,
   Users,
+  ClipboardList,
 } from "lucide-react";
 import { NavLink } from "react-router";
 
 import { CourseSidebar } from "./CourseSidebar";
 
-const adminNavigation = [
-  {
-    id: 1,
-    label: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
+const courseCreatorNavigation = [
   {
     id: 3,
     label: "Students",
-    href: "/admin/students",
+    href: "students",
     icon: Users,
   },
   {
     id: 4,
     label: "Instructors",
-    href: "/admin/instructors",
+    href: "instructors",
     icon: UserRound,
   },
   {
     id: 5,
     label: "Enrollments",
-    href: "/admin/enrollments",
+    href: "enrollments",
     icon: GraduationCap,
   },
   {
     id: 6,
-    label: "Reviews",
-    href: "/admin/reviews",
-    icon: Star,
-  },
-  {
-    id: 7,
-    label: "Assignments",
-    href: "/admin/assignments",
-    icon: ClipboardList,
-  },
-  {
-    id: 8,
-    label: "Certificates",
-    href: "/admin/certificates",
-    icon: ShieldCheck,
-  },
-  {
-    id: 9,
     label: "Analytics",
-    href: "/admin/analytics",
+    href: "analytics",
     icon: BarChart3,
   },
   {
-    id: 10,
-    label: "Notifications",
-    href: "/admin/notifications",
-    icon: Bell,
-  },
-  {
-    id: 11,
+    id: 7,
     label: "Settings",
-    href: "/admin/settings",
+    href: "settings",
     icon: Settings,
   },
 ];
@@ -82,7 +49,7 @@ export function CourseCreatorSidebar() {
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[250px] border-r border-slate-200 bg-white lg:flex lg:flex-col">
       {/* Logo */}
       <div className="flex h-[76px] items-center border-b border-slate-100 px-5">
-        <NavLink to="/admin" className="flex items-center gap-2.5">
+        <NavLink to="/course-creator" className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
             <GraduationCap size={21} />
           </div>
@@ -96,13 +63,13 @@ export function CourseCreatorSidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-5">
         <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-          Administration
+          Course Creator
         </p>
 
         <div className="space-y-1">
           {/* Dashboard */}
           <NavLink
-            to="/admin"
+            to="/course-creator"
             end
             className={({ isActive }) =>
               [
@@ -126,40 +93,32 @@ export function CourseCreatorSidebar() {
           <CourseSidebar />
 
           {/* Other navigation */}
-          {adminNavigation
-            .filter((item) => item.id !== 1)
-            .map((item) => {
-              const Icon = item.icon;
+          {courseCreatorNavigation.map((item) => {
+            const Icon = item.icon;
 
-              return (
-                <NavLink
-                  key={item.id}
-                  to={item.href}
-                  className={({ isActive }) =>
-                    [
-                      "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all",
-                      isActive
-                        ? "bg-indigo-50 text-indigo-600"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                    ].join(" ")
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon size={19} strokeWidth={isActive ? 2.4 : 1.9} />
+            return (
+              <NavLink
+                key={item.id}
+                to={item.href}
+                className={({ isActive }) =>
+                  [
+                    "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all",
+                    isActive
+                      ? "bg-indigo-50 text-indigo-600"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                  ].join(" ")
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon size={19} strokeWidth={isActive ? 2.4 : 1.9} />
 
-                      <span>{item.label}</span>
-
-                      {item.label === "Notifications" && (
-                        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[9px] font-bold text-white">
-                          3
-                        </span>
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              );
-            })}
+                    <span>{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
 

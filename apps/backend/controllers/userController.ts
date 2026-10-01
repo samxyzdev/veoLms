@@ -16,11 +16,11 @@ import {
   UpdateProfileSchema,
 } from "@repo/zod";
 import type { NextFunction, Request, Response } from "express";
-import { checkAuth } from "../middleware/checkAuth";
 import { hashFunction } from "../utilities/hashFunction";
 import { generateOtp } from "../utilities/randomOtp";
-import { sendEmail } from "../utilities/sendEmail";
+
 import { verifyOtp } from "../utilities/verifyOtp";
+import { error } from "node:console";
 
 const PASSWORD_RESET_RESPONSE =
   "If an account exists for that email, a verification code has been sent.";
@@ -450,7 +450,7 @@ export const getCurrentUser = async (
         id: usersTable.id,
         name: usersTable.name,
         email: usersTable.email,
-        role: usersTable.roles,
+        roles: usersTable.roles,
         createdAt: usersTable.createdAt,
         updatedAt: usersTable.updatedAt,
       })
@@ -466,6 +466,66 @@ export const getCurrentUser = async (
 
     return res.status(200).json({
       data: userDetails,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// jab user iss endpoint ko hit karega to uske roles main ek course-creator wala add kar denge.
+type UserRole = "student" | "course_creator" | "admin";
+
+export const activateCourseCreator = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Authentication required.",
+    });
+  }
+
+  try {
+    const [user] = await db
+      .select({
+        id: usersTable.id,
+        roles: usersTable.roles,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    // Already a course creator
+    if (user.roles.includes("course_creator")) {
+      return res.status(200).json({
+        message: "You are already a course creator.",
+      });
+    }
+
+    // Preserve existing roles and add course_creator
+    const updatedRoles = [
+      ...new Set<UserRole>([...user.roles, "course_creator"]),
+    ];
+
+    await db
+      .update(usersTable)
+      .set({
+        roles: updatedRoles,
+        updatedAt: new Date(),
+      })
+      .where(eq(usersTable.id, user.id));
+
+    return res.status(200).json({
+      message: "You are now a course creator.",
     });
   } catch (error) {
     return next(error);
