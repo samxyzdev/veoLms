@@ -1,11 +1,24 @@
 // app/routes/admin/components/dashboard/AdminDashboardHeader.tsx
 
 import { ArrowRight, BarChart3, TrendingUp } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useOutletContext } from "react-router";
 
 import { adminData } from "../../data/adminData";
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: "user" | "course_creator" | "admin";
+  createdAt: string;
+  updatedAt: string;
+};
+
+type DashboardContext = {
+  user: User;
+};
 
 export function CourseCreatorDashboardHeader() {
+  const { user } = useOutletContext<DashboardContext>();
   return (
     <section className="mb-5">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
@@ -16,7 +29,7 @@ export function CourseCreatorDashboardHeader() {
           </div>
 
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-[34px]">
-            Welcome back, {adminData.admin.name}! 👋
+            Welcome back, {user.name}! 👋
           </h1>
 
           <p className="mt-1.5 text-sm text-slate-500">
@@ -34,7 +47,7 @@ export function CourseCreatorDashboardHeader() {
           </Link>
 
           <Link
-            to="/admin/courses/new"
+            to="/course-creator/courses/new"
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700"
           >
             Create course

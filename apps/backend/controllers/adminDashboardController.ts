@@ -13,6 +13,8 @@ import {
   sql,
   sum,
   usersTable,
+  countDistinct,
+  gte,
 } from "@repo/database";
 
 import {
@@ -45,64 +47,292 @@ const DEFAULT_CATEGORIES = [
 ];
 
 // --------------------------------------------------
-// Admin Stats
+// CourseCreator Stats
 // --------------------------------------------------
 
-export const getAdminStats = async (
-  _req: Request,
+export const getCourseCreatorStats = async (
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const [totalUsers, totalCourses, totalPurchases, revenueRow] =
-      await Promise.all([
-        db
-          .select({
-            value: count(),
-          })
-          .from(usersTable),
+    const userId = req.userId;
 
-        db
-          .select({
-            value: count(),
-          })
-          .from(coursesTable),
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
 
-        db
-          .select({
-            value: count(),
-          })
-          .from(coursePurchaseTable),
+    const [
+      totalCoursesRow,
+      totalStudentsRow,
+      totalPurchasesRow,
+      revenueRow,
+      enrollmentRows,
+      popularCoursesRows,
+      recentEnrollmentsRows,
+      studentGrowthRows,
+      courseCategoriesRows,
+    ] = await Promise.all([
+      // --------------------------------
+      // Total courses created by creator
+      // --------------------------------
+      db
+        .select({
+          value: count(),
+        })
+        .from(coursesTable)
+        .where(eq(coursesTable.createdBy, userId)),
 
-        db
-          .select({
-            value: sum(coursesTable.price),
-          })
-          .from(coursePurchaseTable)
-          .innerJoin(
-            coursesTable,
-            eq(coursePurchaseTable.courseId, coursesTable.id),
+      // --------------------------------
+      // Unique students of creator's courses
+      // --------------------------------
+      db
+        .select({
+          value: countDistinct(coursePurchaseTable.userId),
+        })
+        .from(coursePurchaseTable)
+        .innerJoin(
+          coursesTable,
+          eq(coursePurchaseTable.courseId, coursesTable.id),
+        )
+        .where(eq(coursesTable.createdBy, userId)),
+
+      // --------------------------------
+      // Total purchases of creator's courses
+      // --------------------------------
+      db
+        .select({
+          value: count(),
+        })
+        .from(coursePurchaseTable)
+        .innerJoin(
+          coursesTable,
+          eq(coursePurchaseTable.courseId, coursesTable.id),
+        )
+        .where(eq(coursesTable.createdBy, userId)),
+
+      // --------------------------------
+      // Revenue from creator's courses
+      // --------------------------------
+      db
+        .select({
+          value: sum(coursesTable.price),
+        })
+        .from(coursePurchaseTable)
+        .innerJoin(
+          coursesTable,
+          eq(coursePurchaseTable.courseId, coursesTable.id),
+        )
+        .where(eq(coursesTable.createdBy, userId)),
+
+      // --------------------------------
+      // Enrollment overview - last 12 months
+      // --------------------------------
+      db
+        .select({
+          month: sql<string>`
+            to_char(
+              date_trunc(
+                'month',
+                ${coursePurchaseTable.createdAt}
+              ),
+              'Mon'
+            )
+          `,
+          value: count(),
+        })
+        .from(coursePurchaseTable)
+        .innerJoin(
+          coursesTable,
+          eq(coursePurchaseTable.courseId, coursesTable.id),
+        )
+        .where(
+          and(
+            eq(coursesTable.createdBy, userId),
+            gte(
+              coursePurchaseTable.createdAt,
+              sql`
+                date_trunc('month', current_date)
+                - interval '11 months'
+              `,
+            ),
           ),
-      ]);
+        )
+        .groupBy(
+          sql`
+            date_trunc(
+              'month',
+              ${coursePurchaseTable.createdAt}
+            )
+          `,
+        )
+        .orderBy(
+          sql`
+            date_trunc(
+              'month',
+              ${coursePurchaseTable.createdAt}
+            )
+          `,
+        ),
+
+      // --------------------------------
+      // Popular courses - top 4
+      // --------------------------------
+      db
+        .select({
+          id: coursesTable.id,
+          title: coursesTable.title,
+          enrollments: count(coursePurchaseTable.id),
+        })
+        .from(coursesTable)
+        .leftJoin(
+          coursePurchaseTable,
+          eq(coursePurchaseTable.courseId, coursesTable.id),
+        )
+        .where(eq(coursesTable.createdBy, userId))
+        .groupBy(coursesTable.id, coursesTable.title)
+        .orderBy(desc(count(coursePurchaseTable.id)))
+        .limit(4),
+      // Recent Enrollments
+      db
+        .select({
+          id: coursePurchaseTable.id,
+          student: usersTable.name,
+          email: usersTable.email,
+          course: coursesTable.title,
+          date: coursePurchaseTable.createdAt,
+        })
+        .from(coursePurchaseTable)
+        .innerJoin(
+          coursesTable,
+          eq(coursePurchaseTable.courseId, coursesTable.id),
+        )
+        .innerJoin(usersTable, eq(coursePurchaseTable.userId, usersTable.id))
+        .where(eq(coursesTable.createdBy, userId))
+        .orderBy(desc(coursePurchaseTable.createdAt))
+        .limit(5),
+      // --------------------------------
+      // Student Growth - last 6 months
+      // --------------------------------
+      db
+        .select({
+          month: sql<string>`
+      to_char(
+        date_trunc(
+          'month',
+          ${coursePurchaseTable.createdAt}
+        ),
+        'Mon'
+      )
+    `,
+          value: countDistinct(coursePurchaseTable.userId),
+        })
+        .from(coursePurchaseTable)
+        .innerJoin(
+          coursesTable,
+          eq(coursePurchaseTable.courseId, coursesTable.id),
+        )
+        .where(
+          and(
+            eq(coursesTable.createdBy, userId),
+            gte(
+              coursePurchaseTable.createdAt,
+              sql`
+          date_trunc('month', current_date)
+          - interval '11 months'
+        `,
+            ),
+          ),
+        )
+        .groupBy(
+          sql`
+      date_trunc(
+        'month',
+        ${coursePurchaseTable.createdAt}
+      )
+    `,
+        )
+        .orderBy(
+          sql`
+      date_trunc(
+        'month',
+        ${coursePurchaseTable.createdAt}
+      )
+    `,
+        ),
+      // --------------------------------
+      // Course Categories
+      // --------------------------------
+      db
+        .select({
+          name: coursesTable.categoryId,
+          courses: count(),
+        })
+        .from(coursesTable)
+        .where(eq(coursesTable.createdBy, userId))
+        .groupBy(coursesTable.categoryId)
+        .orderBy(desc(count())),
+    ]);
 
     return res.status(200).json({
       data: {
-        totalUsers: Number(totalUsers[0]?.value ?? 0),
-        totalCourses: Number(totalCourses[0]?.value ?? 0),
-        totalPurchases: Number(totalPurchases[0]?.value ?? 0),
+        totalCourses: Number(totalCoursesRow[0]?.value ?? 0),
+
+        totalStudents: Number(totalStudentsRow[0]?.value ?? 0),
+
+        totalPurchases: Number(totalPurchasesRow[0]?.value ?? 0),
+
         totalRevenue: Number(revenueRow[0]?.value ?? 0),
+
+        enrollmentOverview: enrollmentRows.map((item) => ({
+          month: item.month,
+          value: Number(item.value),
+        })),
+
+        popularCourses: popularCoursesRows.map((course, index) => ({
+          id: course.id,
+          title: course.title,
+          enrollments: Number(course.enrollments),
+          rank: index + 1,
+        })),
+        recentEnrollments: recentEnrollmentsRows.map((item) => ({
+          id: item.id,
+          student: item.student,
+          email: item.email,
+          course: item.course,
+          date: item.date,
+          status: "Enrolled",
+        })),
+        studentGrowth: studentGrowthRows.map((item) => ({
+          month: item.month,
+          value: Number(item.value),
+        })),
+        courseCategories: courseCategoriesRows.map((item) => ({
+          name: item.name,
+          courses: Number(item.courses),
+          percentage:
+            Number(totalCoursesRow[0]?.value ?? 0) > 0
+              ? Number(
+                  (
+                    (Number(item.courses) / Number(totalCoursesRow[0]?.value)) *
+                    100
+                  ).toFixed(1),
+                )
+              : 0,
+        })),
       },
     });
   } catch (error) {
     return next(error);
   }
 };
-
 // --------------------------------------------------
 // List Users
 // --------------------------------------------------
 
-export const listAdminUsers = async (
+export const listCourseCreatorUsers = async (
   _req: Request,
   res: Response,
   next: NextFunction,
@@ -113,7 +343,7 @@ export const listAdminUsers = async (
         id: usersTable.id,
         name: usersTable.name,
         email: usersTable.email,
-        role: usersTable.role,
+        roles: usersTable.roles,
         createdAt: usersTable.createdAt,
       })
       .from(usersTable)
@@ -167,11 +397,10 @@ export const updateUserRole = async (
         message: "User not found.",
       });
     }
-
     await db
       .update(usersTable)
       .set({
-        role: result.data.role,
+        roles: result.data.role,
         updatedAt: new Date(),
       })
       .where(eq(usersTable.id, userId));
@@ -188,7 +417,7 @@ export const updateUserRole = async (
 // List Courses
 // --------------------------------------------------
 
-export const listAdminCourses = async (
+export const listCourseCreatorCourses = async (
   _req: Request,
   res: Response,
   next: NextFunction,

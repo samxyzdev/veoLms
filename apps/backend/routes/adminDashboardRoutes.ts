@@ -7,10 +7,9 @@ import {
 import {
   addCourseVideo,
   createCourse,
-  getAdminStats,
-  listAdminCourses,
-  listAdminUsers,
+  getCourseCreatorStats,
   listCategories,
+  listCourseCreatorUsers,
   updateCourse,
   updateUserRole,
 } from "../controllers/adminDashboardController";
@@ -60,10 +59,10 @@ adminDashboardRoutes.get(
     }
   },
 );
-adminDashboardRoutes.get("/stats", getAdminStats);
-adminDashboardRoutes.get("/users", listAdminUsers);
+adminDashboardRoutes.get("/stats", getCourseCreatorStats);
+adminDashboardRoutes.get("/users", listCourseCreatorUsers);
 adminDashboardRoutes.patch("/users/:userId/role", updateUserRole);
-adminDashboardRoutes.get("/courses", listAdminCourses);
+adminDashboardRoutes.get("/courses", listCourseCreatorUsers);
 adminDashboardRoutes.get("/categories", listCategories);
 adminDashboardRoutes.post("/courses", createCourse);
 adminDashboardRoutes.patch("/courses/:courseId", updateCourse);

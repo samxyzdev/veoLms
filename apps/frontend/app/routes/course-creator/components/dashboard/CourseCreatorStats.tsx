@@ -1,21 +1,49 @@
-// app/routes/admin/components/dashboard/AdminStats.tsx
+import { BookOpen, CircleDollarSign, GraduationCap, Users } from "lucide-react";
 
-import {
-  BookOpen,
-  CircleDollarSign,
-  GraduationCap,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { useOutletContext } from "react-router";
 
-import { adminData } from "../../data/adminData";
-
-const iconMap = {
-  Users,
-  BookOpen,
-  GraduationCap,
-  CircleDollarSign,
+type CourseCreatorStatsData = {
+  totalCourses: number;
+  publishedCourses: number;
+  totalStudents: number;
+  totalRevenue: number;
 };
+
+type CourseCreatorContext = {
+  user: unknown;
+  stats: CourseCreatorStatsData;
+};
+
+const statConfig = [
+  {
+    id: "total-courses",
+    title: "Total Courses",
+    key: "totalCourses",
+    icon: BookOpen,
+    color: "purple",
+  },
+  {
+    id: "published-courses",
+    title: "Published Courses",
+    key: "publishedCourses",
+    icon: GraduationCap,
+    color: "blue",
+  },
+  {
+    id: "students",
+    title: "Total Students",
+    key: "totalStudents",
+    icon: Users,
+    color: "green",
+  },
+  {
+    id: "revenue",
+    title: "Total Revenue",
+    key: "totalRevenue",
+    icon: CircleDollarSign,
+    color: "orange",
+  },
+] as const;
 
 const iconStyles = {
   purple: "bg-indigo-50 text-indigo-600",
@@ -25,12 +53,18 @@ const iconStyles = {
 };
 
 export function CourseCreatorStats() {
+  const { stats } = useOutletContext<CourseCreatorContext>();
+
+  console.log(stats);
+
   return (
     <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {adminData.stats.map((stat) => {
-        const Icon = iconMap[stat.icon as keyof typeof iconMap];
+      {statConfig.map((stat) => {
+        const Icon = stat.icon;
 
-        const iconStyle = iconStyles[stat.color as keyof typeof iconStyles];
+        const iconStyle = iconStyles[stat.color];
+
+        const value = stats[stat.key];
 
         return (
           <article
@@ -43,19 +77,6 @@ export function CourseCreatorStats() {
               >
                 <Icon size={22} />
               </div>
-
-              {/* Mini sparkline */}
-              <div className="hidden h-12 w-24 items-end gap-1 sm:flex">
-                {[25, 38, 31, 55, 43, 70, 58].map((height, index) => (
-                  <span
-                    key={index}
-                    className="w-2 rounded-t-full bg-indigo-200"
-                    style={{
-                      height: `${height}%`,
-                    }}
-                  />
-                ))}
-              </div>
             </div>
 
             <p className="mt-4 text-xs font-medium text-slate-400">
@@ -64,16 +85,8 @@ export function CourseCreatorStats() {
 
             <div className="mt-1 flex items-end gap-2">
               <span className="text-2xl font-extrabold tracking-tight text-slate-950">
-                {stat.value}
+                {value}
               </span>
-            </div>
-
-            <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-              <TrendingUp size={13} className="text-emerald-500" />
-
-              <span className="font-bold text-emerald-500">{stat.change}</span>
-
-              <span className="text-slate-400">{stat.description}</span>
             </div>
           </article>
         );
@@ -81,3 +94,7 @@ export function CourseCreatorStats() {
     </section>
   );
 }
+
+// published course ko pupulate karna hai. backned se main published course return nahi kar rha hun.
+// I thing backned mian shcema main thoda changes karne honge
+// punlic pirvate ke baare mian sikhan hoga.

@@ -1,41 +1,40 @@
-// app/routes/admin/components/dashboard/PopularCourses.tsx
+import { ArrowRight } from "lucide-react";
+import { Link, useOutletContext } from "react-router";
 
-import { ArrowRight, Star } from "lucide-react";
-import { Link } from "react-router";
+type PopularCourse = {
+  id: string;
+  title: string;
+  enrollments: number;
+  rank: number;
+};
 
-import { adminData } from "../../data/adminData";
+type CourseCreatorStats = {
+  totalCourses: number;
+  totalStudents: number;
+  totalPurchases: number;
+  totalRevenue: number;
 
-const thumbnailConfig: Record<
-  string,
-  {
-    gradient: string;
-    content: React.ReactNode;
-  }
-> = {
-  react: {
-    gradient: "from-slate-950 via-indigo-950 to-cyan-500",
-    content: <span className="text-2xl text-cyan-300">⚛</span>,
-  },
+  enrollmentOverview: {
+    month: string;
+    value: number;
+  }[];
 
-  node: {
-    gradient: "from-slate-950 via-emerald-950 to-green-500",
-    content: <span className="text-xl font-extrabold text-white">node</span>,
-  },
+  popularCourses: PopularCourse[];
+};
 
-  html: {
-    gradient: "from-orange-500 via-red-500 to-blue-500",
-    content: <span className="text-xl font-extrabold text-white">5 3</span>,
-  },
-
-  typescript: {
-    gradient: "from-blue-700 via-blue-600 to-cyan-400",
-    content: <span className="text-xl font-extrabold text-white">TS</span>,
-  },
+type CourseCreatorContext = {
+  user: unknown;
+  stats: CourseCreatorStats;
 };
 
 export function PopularCourses() {
+  const { stats } = useOutletContext<CourseCreatorContext>();
+
+  const courses = stats.popularCourses ?? [];
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-extrabold text-slate-950">
@@ -48,7 +47,7 @@ export function PopularCourses() {
         </div>
 
         <Link
-          to="/admin/courses"
+          to="/course-creator/courses"
           className="flex items-center gap-1 text-xs font-bold text-indigo-600"
         >
           View All
@@ -56,12 +55,16 @@ export function PopularCourses() {
         </Link>
       </div>
 
+      {/* Courses */}
       <div>
-        {adminData.popularCourses.map((course) => {
-          const thumbnail =
-            thumbnailConfig[course.thumbnail] ?? thumbnailConfig.react;
-
-          return (
+        {courses.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-sm font-medium text-slate-400">
+              No courses found.
+            </p>
+          </div>
+        ) : (
+          courses.map((course) => (
             <div
               key={course.id}
               className="flex items-center gap-3 border-b border-slate-100 py-3.5 last:border-0"
@@ -71,47 +74,26 @@ export function PopularCourses() {
                 {course.rank}
               </span>
 
-              {/* Image */}
-              <div
-                className={`flex h-12 w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${thumbnail.gradient}`}
-              >
-                {thumbnail.content}
+              {/* Thumbnail */}
+              <div className="flex h-12 w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-950 via-indigo-950 to-cyan-500">
+                <span className="text-sm font-extrabold text-white">
+                  {course.title.slice(0, 2).toUpperCase()}
+                </span>
               </div>
 
               {/* Info */}
-              <div className="min-w-0 flex-[1.2]">
+              <div className="min-w-0 flex-1">
                 <h3 className="truncate text-xs font-bold text-slate-900">
                   {course.title}
                 </h3>
 
                 <p className="mt-1 text-[10px] text-slate-400">
-                  {course.students}
+                  {course.enrollments} students
                 </p>
               </div>
 
-              {/* Rating */}
-              <div className="hidden items-center gap-1 sm:flex">
-                <Star size={13} className="fill-amber-400 text-amber-400" />
-
-                <span className="text-[10px] font-bold text-slate-700">
-                  {course.rating}
-                </span>
-              </div>
-
-              {/* Progress */}
-              <div className="hidden w-[110px] md:block">
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-indigo-500"
-                    style={{
-                      width: `${course.progress}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
               {/* Enrollments */}
-              <div className="w-12 text-right">
+              <div className="w-16 text-right">
                 <p className="text-sm font-extrabold text-slate-900">
                   {course.enrollments}
                 </p>
@@ -119,8 +101,8 @@ export function PopularCourses() {
                 <p className="text-[9px] text-slate-400">enrollments</p>
               </div>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
     </section>
   );

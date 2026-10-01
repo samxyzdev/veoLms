@@ -12,9 +12,15 @@ import type { Route } from "./+types/route";
 
 export async function clientLoader() {
   try {
-    const response = await api.get("/course-creator/me");
+    const [userResponse, statsResponse] = await Promise.all([
+      api.get("/course-creator/me"),
+      api.get("/course-creator/stats"),
+    ]);
 
-    return response.data.data;
+    return {
+      user: userResponse.data.data,
+      stats: statsResponse.data.data,
+    };
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 401) {
       throw redirect("/signin");
@@ -33,7 +39,7 @@ export function HydrateFallback() {
 export default function CourseCreatorLayout({
   loaderData,
 }: Route.ComponentProps) {
-  const user = loaderData;
+  const { user, stats } = loaderData;
 
   return (
     <div className="min-h-screen bg-[#f7f8fc]">
@@ -51,7 +57,12 @@ export default function CourseCreatorLayout({
         />
 
         <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-          <Outlet context={{ user }} />
+          <Outlet
+            context={{
+              user,
+              stats,
+            }}
+          />
         </div>
       </main>
     </div>
