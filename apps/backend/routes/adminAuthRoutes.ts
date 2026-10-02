@@ -5,7 +5,7 @@ import {
 } from "../controllers/adminAuthController";
 
 /** Admin authentication endpoint registration. */
-export const adminAuthRoutes = Router();
+export const courseCreatorAuthRoutes = Router();
 
-adminAuthRoutes.post("/signup", signUpCourseCreator);
-adminAuthRoutes.post("/signin", signInCourseCreator);
+courseCreatorAuthRoutes.post("/signup", signUpCourseCreator);
+courseCreatorAuthRoutes.post("/signin", signInCourseCreator);

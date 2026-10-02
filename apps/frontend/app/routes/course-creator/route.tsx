@@ -12,10 +12,7 @@ import type { Route } from "./+types/route";
 
 export async function clientLoader() {
   try {
-    const [userResponse, statsResponse] = await Promise.all([
-      api.get("/course-creator/me"),
-      api.get("/course-creator/stats"),
-    ]);
+    const [userResponse, statsResponse] = await Promise.all([api.get("/user/me"), api.get("/course-creator/stats")]);
 
     return {
       user: userResponse.data.data,
@@ -36,25 +33,15 @@ export function HydrateFallback() {
   return <p>Loading...</p>;
 }
 
-export default function CourseCreatorLayout({
-  loaderData,
-}: Route.ComponentProps) {
+export default function CourseCreatorLayout({ loaderData }: Route.ComponentProps) {
   const { user, stats } = loaderData;
 
   return (
     <div className="min-h-screen bg-[#f7f8fc]">
-      <Sidebar
-        logoHref="/course-creator"
-        navigation={courseCreatorSidebarData.navigation}
-        footerCard={courseCreatorSidebarData.footerCard}
-      />
+      <Sidebar logoHref="/course-creator" navigation={courseCreatorSidebarData.navigation} footerCard={courseCreatorSidebarData.footerCard} />
 
       <main className="min-h-screen lg:ml-[250px]">
-        <Header
-          user={user}
-          mode="course_creator"
-          searchPlaceholder="Search students, courses, or anything..."
-        />
+        <Header user={user} mode="course_creator" searchPlaceholder="Search students, courses, or anything..." />
 
         <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
           <Outlet

@@ -332,7 +332,7 @@ export const getCourseCreatorStats = async (
 // List Users
 // --------------------------------------------------
 
-export const listCourseCreatorUsers = async (
+export const listCreatorCourses = async (
   _req: Request,
   res: Response,
   next: NextFunction,

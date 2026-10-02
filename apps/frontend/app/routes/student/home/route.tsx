@@ -16,10 +16,7 @@ import type { Route } from "../+types/route";
 
 export async function clientLoader() {
   try {
-    const [statsResponse, courseProgressResponse] = await Promise.all([
-      api.get("/dashboard/stats"),
-      api.get("/dashboard/course-progress"),
-    ]);
+    const [statsResponse, courseProgressResponse] = await Promise.all([api.get("/student/dashboard/stats"), api.get("/student/dashboard/course-progress")]);
 
     return {
       stats: statsResponse.data.data,

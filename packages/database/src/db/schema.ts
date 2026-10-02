@@ -31,6 +31,14 @@ export const providerEnum = pgEnum("oauth_provider", [
   "github",
   "discord",
 ]);
+
+export const courseStatusEnum = pgEnum("course_status", [
+  "draft",
+  "published",
+  "private",
+  "archived",
+]);
+
 export const usersTable = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
   name: varchar({ length: 255 }).notNull(),
@@ -68,31 +76,58 @@ export const categoriesTable = pgTable("categories", {
     .notNull(),
 });
 
-export const coursesTable = pgTable("courses", {
-  id: uuid().primaryKey().defaultRandom(),
-  title: varchar({ length: 255 }).notNull(),
-  description: varchar({ length: 1000 }),
-  price: integer().notNull(),
-  createdBy: uuid("created_by")
-    .notNull()
-    .references(() => usersTable.id),
-  categoryId: uuid("category_id")
-    .notNull()
-    .references(() => categoriesTable.id),
-  courseLanguage: varchar("course_language", {
-    length: 50,
-  }).notNull(),
-  createdAt: timestamp("created_at", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+export const coursesTable = pgTable(
+  "courses",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    title: varchar({ length: 255 }).notNull(),
+
+    description: varchar({ length: 1000 }),
+
+    price: integer().notNull(),
+
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => usersTable.id),
+
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categoriesTable.id),
+
+    courseLanguage: varchar("course_language", {
+      length: 50,
+    }).notNull(),
+
+    status: courseStatusEnum("status").default("draft").notNull(),
+
+    publishedAt: timestamp("published_at", {
+      withTimezone: true,
+    }),
+
+    archivedAt: timestamp("archived_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+
+  (table) => [
+    index("courses_created_by_idx").on(table.createdBy),
+    index("courses_status_idx").on(table.status),
+    index("courses_category_id_idx").on(table.categoryId),
+  ],
+);
 
 export const courseSectionsTable = pgTable("course_sections", {
   id: uuid().primaryKey().defaultRandom(),

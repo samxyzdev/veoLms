@@ -12,7 +12,7 @@ import type { Route } from "./+types/route";
 
 export async function clientLoader() {
   try {
-    const response = await api.get("/student/me");
+    const response = await api.get("/user/me");
 
     return response.data.data;
   } catch (error) {
@@ -35,16 +35,9 @@ export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="min-h-screen bg-[#f7f8fc]">
-      <Sidebar
-        navigation={studentSidebarData.navigation}
-        footerCard={studentSidebarData.footerCard}
-      />
+      <Sidebar navigation={studentSidebarData.navigation} footerCard={studentSidebarData.footerCard} />
       <main className="min-h-screen lg:ml-[250px]">
-        <Header
-          user={user}
-          mode="student"
-          searchPlaceholder="Search courses, lessons..."
-        />
+        <Header user={user} mode="student" searchPlaceholder="Search courses, lessons..." />
 
         <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
           <Outlet context={{ user }} />

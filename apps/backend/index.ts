@@ -1,19 +1,11 @@
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
-import { studentRoutes, userRoutes } from "./routes/userRoutes";
+import { studentRoutes } from "./routes/studentRoutes";
 import { otpRoutes } from "./routes/otpRoutes";
-import { courseRoutes } from "./routes/courseRoutes";
-import { adminDashboardRoutes } from "./routes/adminDashboardRoutes";
-import { adminAuthRoutes } from "./routes/adminAuthRoutes";
-import { adminRoutes } from "./routes/adminRoutes";
-import { dashboardRoutes } from "./routes/dashboardStatsRoutes";
-import { checkAuth } from "./middleware/checkAuth";
+import { userRoutes } from "./routes/userRoutes";
+import { courseCreatorRoutes } from "./routes/adminDashboardRoutes";
 
 const cookieSecret = process.env.COOKIE_SECRET;
 
@@ -45,12 +37,10 @@ app.use(
 app.use(cookieParser(cookieSecret));
 
 app.use("/api/v1/otp", otpRoutes);
+// common singup singn, passwrod rest etc. routes
+app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/student", studentRoutes);
-app.use("/api/v1/dashboard", dashboardRoutes);
-app.use("/api/v1/course", courseRoutes);
-app.use("/api/v1/course-creator/auth", adminAuthRoutes);
-app.use("/api/v1/course-creator", adminDashboardRoutes);
-app.use("/api/v1/course-creator/uploads", adminRoutes);
+app.use("/api/v1/course-creator", courseCreatorRoutes);
 
 // 404 - Route not found
 app.use((req: Request, res: Response) => {

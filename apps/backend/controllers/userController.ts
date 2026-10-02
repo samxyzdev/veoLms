@@ -1,50 +1,26 @@
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
-import {
-  asc,
-  db,
-  eq,
-  otpTable,
-  sessionTable,
-  usersTable,
-} from "@repo/database";
-import {
-  OtpSchema,
-  ResetPasswordSchema,
-  SigninSchema,
-  SignupSchema,
-  UpdateProfileSchema,
-} from "@repo/zod";
+import { asc, db, eq, otpTable, sessionTable, usersTable } from "@repo/database";
+import { OtpSchema, ResetPasswordSchema, SigninSchema, SignupSchema, UpdateProfileSchema } from "@repo/zod";
 import type { NextFunction, Request, Response } from "express";
 import { hashFunction } from "../utilities/hashFunction";
 import { generateOtp } from "../utilities/randomOtp";
 
 import { verifyOtp } from "../utilities/verifyOtp";
-import { error } from "node:console";
 
-const PASSWORD_RESET_RESPONSE =
-  "If an account exists for that email, a verification code has been sent.";
+const PASSWORD_RESET_RESPONSE = "If an account exists for that email, a verification code has been sent.";
 
 /**
  * Check whether a database error is a PostgreSQL unique-constraint violation.
  */
 const isUniqueViolation = (error: unknown) => {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "23505"
-  );
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23505";
 };
 
 /**
  * Send a password-reset OTP without revealing whether the account exists.
  */
-export const requestPasswordReset = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
   const result = OtpSchema.safeParse(req.body);
 
   if (!result.success) {
@@ -56,11 +32,7 @@ export const requestPasswordReset = async (
   const { email } = result.data;
 
   try {
-    const [user] = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(eq(usersTable.email, email))
-      .limit(1);
+    const [user] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email)).limit(1);
 
     if (!user) {
       return res.status(200).json({
@@ -94,17 +66,12 @@ export const requestPasswordReset = async (
  * Consume a password-reset OTP, change the password,
  * then revoke all existing sessions.
  */
-export const confirmPasswordReset = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const confirmPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
   const result = ResetPasswordSchema.safeParse(req.body);
 
   if (!result.success) {
     return res.status(400).json({
-      message:
-        "Email, 6-digit code, and a password of at least 8 characters are required.",
+      message: "Email, 6-digit code, and a password of at least 8 characters are required.",
       errors: result.error.flatten(),
     });
   }
@@ -147,11 +114,7 @@ export const confirmPasswordReset = async (
   }
 };
 
-export const signUp = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const signUp = async (req: Request, res: Response, next: NextFunction) => {
   const result = SignupSchema.safeParse(req.body);
 
   if (!result.success) {
@@ -168,8 +131,7 @@ export const signUp = async (
 
     if (!otpValid) {
       return res.status(400).json({
-        message:
-          "Invalid or expired OTP. Please enter the correct code and try again.",
+        message: "Invalid or expired OTP. Please enter the correct code and try again.",
       });
     }
 
@@ -218,11 +180,7 @@ export const signUp = async (
   }
 };
 
-export const signIn = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const signIn = async (req: Request, res: Response, next: NextFunction) => {
   const result = SigninSchema.safeParse(req.body);
 
   if (!result.success) {
@@ -250,20 +208,10 @@ export const signIn = async (
       });
     }
 
-    const sessions = await db
-      .select()
-      .from(sessionTable)
-      .where(eq(sessionTable.userId, user.id))
-      .orderBy(asc(sessionTable.createdAt));
+    const sessions = await db.select().from(sessionTable).where(eq(sessionTable.userId, user.id)).orderBy(asc(sessionTable.createdAt));
 
     if (sessions.length >= 2) {
-      await Promise.all(
-        sessions
-          .slice(0, sessions.length - 1)
-          .map((session) =>
-            db.delete(sessionTable).where(eq(sessionTable.id, session.id)),
-          ),
-      );
+      await Promise.all(sessions.slice(0, sessions.length - 1).map((session) => db.delete(sessionTable).where(eq(sessionTable.id, session.id))));
     }
 
     const token = crypto.randomBytes(32).toString("hex");
@@ -292,18 +240,12 @@ export const signIn = async (
   }
 };
 
-export const logOut = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const logOut = async (req: Request, res: Response, next: NextFunction) => {
   const { sid } = req.signedCookies;
 
   try {
     if (sid) {
-      await db
-        .delete(sessionTable)
-        .where(eq(sessionTable.token, hashFunction(sid)));
+      await db.delete(sessionTable).where(eq(sessionTable.token, hashFunction(sid)));
     }
 
     res.clearCookie("sid", {
@@ -321,11 +263,7 @@ export const logOut = async (
   }
 };
 
-export const updateProfile = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const updateProfile = async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId;
 
   if (!userId) {
@@ -361,10 +299,7 @@ export const updateProfile = async (
         });
       }
 
-      const passwordMatches = await bcrypt.compare(
-        currentPassword ?? "",
-        existingUser.password,
-      );
+      const passwordMatches = await bcrypt.compare(currentPassword ?? "", existingUser.password);
 
       if (!passwordMatches) {
         return res.status(400).json({
@@ -431,11 +366,7 @@ export const updateProfile = async (
   }
 };
 
-export const getCurrentUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const getCurrentUser = async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId;
 
   if (!userId) {
@@ -475,11 +406,7 @@ export const getCurrentUser = async (
 // jab user iss endpoint ko hit karega to uske roles main ek course-creator wala add kar denge.
 type UserRole = "student" | "course_creator" | "admin";
 
-export const activateCourseCreator = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const activateCourseCreator = async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId;
 
   if (!userId) {
@@ -512,9 +439,7 @@ export const activateCourseCreator = async (
     }
 
     // Preserve existing roles and add course_creator
-    const updatedRoles = [
-      ...new Set<UserRole>([...user.roles, "course_creator"]),
-    ];
+    const updatedRoles = [...new Set<UserRole>([...user.roles, "course_creator"])];
 
     await db
       .update(usersTable)

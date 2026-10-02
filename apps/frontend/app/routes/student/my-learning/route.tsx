@@ -4,15 +4,9 @@ import { isAxiosError } from "axios";
 
 import type { Route } from "../+types/route";
 
-import {
-  LearningCourseCard,
-  type LearningCourse,
-} from "../components/my-learning/LearningCourseCard";
+import { LearningCourseCard, type LearningCourse } from "../components/my-learning/LearningCourseCard";
 
-import {
-  LearningTabs,
-  type LearningTab,
-} from "../components/my-learning/LearningTabs";
+import { LearningTabs, type LearningTab } from "../components/my-learning/LearningTabs";
 
 import { MyLearningHeader } from "../components/my-learning/MyLearningHeader";
 
@@ -23,7 +17,7 @@ import { api } from "~/lib/axios";
  */
 export async function clientLoader() {
   try {
-    const response = await api.get("/course/purchased-course");
+    const response = await api.get("/student/courses/purchased-courses");
 
     /**
      * Supports both response formats:
@@ -113,12 +107,7 @@ export default function MyLearningPage({ loaderData }: Route.ComponentProps) {
       {/* ------------------------- */}
       {/* Tabs + Filters */}
       {/* ------------------------- */}
-      <LearningTabs
-        activeTab={activeTab}
-        sortBy={sortBy}
-        onTabChange={setActiveTab}
-        onSortChange={setSortBy}
-      />
+      <LearningTabs activeTab={activeTab} sortBy={sortBy} onTabChange={setActiveTab} onSortChange={setSortBy} />
 
       {/* ------------------------- */}
       {/* Courses */}
@@ -133,21 +122,11 @@ export default function MyLearningPage({ loaderData }: Route.ComponentProps) {
         {/* ------------------------- */}
         {filteredCourses.length === 0 && (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-xl">
-              📚
-            </div>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-xl">📚</div>
 
-            <h3 className="mt-4 text-sm font-bold text-slate-900">
-              {activeTab === "all"
-                ? "No courses found"
-                : `No ${activeTab} courses`}
-            </h3>
+            <h3 className="mt-4 text-sm font-bold text-slate-900">{activeTab === "all" ? "No courses found" : `No ${activeTab} courses`}</h3>
 
-            <p className="mt-1 text-xs text-slate-400">
-              {activeTab === "all"
-                ? "You haven't purchased any courses yet."
-                : "You don't have any courses in this category."}
-            </p>
+            <p className="mt-1 text-xs text-slate-400">{activeTab === "all" ? "You haven't purchased any courses yet." : "You don't have any courses in this category."}</p>
           </div>
         )}
       </div>

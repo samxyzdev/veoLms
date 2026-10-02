@@ -25,7 +25,7 @@ export function Header({ user, mode, searchPlaceholder }: HeaderProps) {
         {/* Right Actions */}
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           {/* Date */}
-          <button
+          {/* <button
             type="button"
             className="hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:flex"
           >
@@ -34,7 +34,7 @@ export function Header({ user, mode, searchPlaceholder }: HeaderProps) {
             <span>Oct 2026</span>
 
             <ChevronDown size={14} className="text-slate-400" />
-          </button>
+          </button> */}
 
           {/* Notifications */}
           <HeaderNotifications />

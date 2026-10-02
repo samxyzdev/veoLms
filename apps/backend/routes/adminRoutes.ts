@@ -4,6 +4,6 @@ import { checkCourseCreator } from "../middleware/checkAdmin";
 import { checkAuth } from "../middleware/checkAuth";
 
 /** Admin upload endpoint registration. */
-export const adminRoutes = Router();
+export const courseCreatorUploadRoutes = Router();
 
-adminRoutes.get("/", checkAuth, checkCourseCreator, createVideoUploadUrl);
+courseCreatorUploadRoutes.get("/", checkAuth, checkCourseCreator, createVideoUploadUrl);
