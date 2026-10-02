@@ -69,11 +69,7 @@ export const UserSchema = z.strictObject({
 /* -------------------------------------------------------------------------- */
 
 export const CategoriesSchema = z.strictObject({
-  name: z
-    .string()
-    .trim()
-    .min(3, "Category name must be at least 3 characters")
-    .max(100, "Category name must be at most 100 characters"),
+  name: z.string().trim().min(3, "Category name must be at least 3 characters").max(100, "Category name must be at most 100 characters"),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -81,11 +77,7 @@ export const CategoriesSchema = z.strictObject({
 /* -------------------------------------------------------------------------- */
 
 export const CourseSchema = z.strictObject({
-  title: z
-    .string()
-    .trim()
-    .min(3, "Course title must be at least 3 characters")
-    .max(255, "Course title must be at most 255 characters"),
+  title: z.string().trim().min(3, "Course title must be at least 3 characters").max(255, "Course title must be at most 255 characters"),
 
   description: z.string().trim().max(5000, "Description is too long"),
 
@@ -96,38 +88,62 @@ export const CourseSchema = z.strictObject({
     .refine((value) => Number(value) >= 0, "Price cannot be negative"),
 });
 
+/* -------------------------------------------------------------------------- */
+/* Create Course                                                              */
+/* -------------------------------------------------------------------------- */
+
 export const CreateCourseSchema = z.strictObject({
-  title: z
-    .string()
-    .trim()
-    .min(3, "Course title must be at least 3 characters")
-    .max(255, "Course title must be at most 255 characters"),
+  title: z.string().trim().min(3, "Course title must be at least 3 characters").max(255, "Course title must be at most 255 characters"),
 
-  description: z
-    .string()
-    .trim()
-    .max(1000, "Description must be at most 1000 characters")
-    .optional(),
+  description: z.string().trim().max(1000, "Description must be at most 1000 characters").optional(),
 
-  price: z
-    .number()
-    .finite()
-    .min(0, "Price cannot be negative")
-    .max(10_000_000, "Price is too large"),
+  price: z.number().finite().min(0, "Price cannot be negative").max(10_000_000, "Price is too large"),
 
-  courseLanguage: z
-    .string()
-    .trim()
-    .min(1, "Course language is required")
-    .max(50, "Course language is too long"),
+  courseLanguage: z.string().trim().min(1, "Course language is required").max(50, "Course language is too long"),
 
   categoryId: z.uuid("Invalid category ID"),
+
+  level: z.enum(["Beginner", "Intermediate", "Advanced", "All Levels"], {
+    error: "Please select a valid course level",
+  }),
+
+  thumbnailUrl: z.string().trim().min(1, "Course thumbnail is required").max(2048, "Thumbnail URL is too long"),
 });
 
-export const UpdateCourseSchema = CreateCourseSchema.partial().refine(
-  (data) => Object.keys(data).length > 0,
-  "Provide at least one field to update",
-);
+/* -------------------------------------------------------------------------- */
+/* Create Course Draft                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Used while creating/saving a draft course.
+ *
+ * All course fields are optional because a draft can be incomplete.
+ *
+ * Example:
+ * {
+ *   title: "Learn React"
+ * }
+ *
+ * or:
+ *
+ * {
+ *   title: "Learn React",
+ *   description: "Complete React course"
+ * }
+ */
+export const CreateCourseDraftSchema = CreateCourseSchema.partial().refine((data) => Object.keys(data).length > 0, "Provide at least one field to save the draft");
+
+/* -------------------------------------------------------------------------- */
+/* Update Course                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Used for PATCH /courses/:courseId
+ *
+ * Since it is a partial schema, any combination of course fields
+ * can be updated.
+ */
+export const UpdateCourseSchema = CreateCourseSchema.partial().refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
 
 /* -------------------------------------------------------------------------- */
 /* Course content                                                             */
@@ -158,17 +174,9 @@ export const CourseContentSchema = z.strictObject({
 /* -------------------------------------------------------------------------- */
 
 export const CommentAndReviewsSchema = z.strictObject({
-  comment: z
-    .string()
-    .trim()
-    .min(1, "Comment cannot be empty")
-    .max(512, "Comment is too long"),
+  comment: z.string().trim().min(1, "Comment cannot be empty").max(512, "Comment is too long"),
 
-  rating: z
-    .number()
-    .int("Rating must be a whole number")
-    .min(1, "Rating must be at least 1")
-    .max(5, "Rating cannot be greater than 5"),
+  rating: z.number().int("Rating must be a whole number").min(1, "Rating must be at least 1").max(5, "Rating cannot be greater than 5"),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -256,39 +264,30 @@ export const UpdateProfileSchema = z
 
     newPassword: passwordSchema.optional(),
   })
-  .refine(
-    (data) =>
-      data.name !== undefined ||
-      data.email !== undefined ||
-      data.newPassword !== undefined,
-    {
-      message: "Nothing to update",
-    },
-  )
-  .refine(
-    (data) =>
-      data.newPassword === undefined || data.currentPassword !== undefined,
-    {
-      message: "Current password is required to set a new password",
-      path: ["currentPassword"],
-    },
-  )
-  .refine(
-    (data) =>
-      data.newPassword === undefined ||
-      data.newPassword !== data.currentPassword,
-    {
-      message: "New password must be different from current password",
-      path: ["newPassword"],
-    },
-  );
+  .refine((data) => data.name !== undefined || data.email !== undefined || data.newPassword !== undefined, {
+    message: "Nothing to update",
+  })
+  .refine((data) => data.newPassword === undefined || data.currentPassword !== undefined, {
+    message: "Current password is required to set a new password",
+    path: ["currentPassword"],
+  })
+  .refine((data) => data.newPassword === undefined || data.newPassword !== data.currentPassword, {
+    message: "New password must be different from current password",
+    path: ["newPassword"],
+  });
 
 /* -------------------------------------------------------------------------- */
 /* Useful inferred types                                                      */
 /* -------------------------------------------------------------------------- */
 
 export type SignupInput = z.infer<typeof SignupSchema>;
+
 export type SigninInput = z.infer<typeof SigninSchema>;
+
 export type CreateCourseInput = z.infer<typeof CreateCourseSchema>;
+
+export type CreateCourseDraftInput = z.infer<typeof CreateCourseDraftSchema>;
+
 export type UpdateCourseInput = z.infer<typeof UpdateCourseSchema>;
+
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;

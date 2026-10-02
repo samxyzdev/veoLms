@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import { studentRoutes } from "./routes/studentRoutes";
 import { otpRoutes } from "./routes/otpRoutes";
 import { userRoutes } from "./routes/userRoutes";
-import { courseCreatorRoutes } from "./routes/adminDashboardRoutes";
+import { courseCreatorRoutes } from "./routes/courseCreatorRoutes";
 
 const cookieSecret = process.env.COOKIE_SECRET;
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createVideoUploadUrl } from "../controllers/uploadController";
-import { checkCourseCreator } from "../middleware/checkAdmin";
+import { checkCourseCreator } from "../middleware/checkCourseCreator";
 import { checkAuth } from "../middleware/checkAuth";
 
 /** Admin upload endpoint registration. */

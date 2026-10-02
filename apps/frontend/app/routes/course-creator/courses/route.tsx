@@ -1,15 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  ArrowDownUp,
-  BookOpen,
-  ChevronDown,
-  CircleEllipsis,
-  Filter,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  Users,
-} from "lucide-react";
+import { ArrowDownUp, BookOpen, ChevronDown, CircleEllipsis, Filter, Plus, Search, SlidersHorizontal, Users } from "lucide-react";
 import { Link } from "react-router";
 
 type CourseStatus = "published" | "draft" | "archived";
@@ -236,29 +226,21 @@ function CourseThumbnail({ type }: { type: Course["thumbnail"] }) {
   const thumbnail = thumbnailStyles[type];
 
   return (
-    <div
-      className={`flex h-14 w-20 shrink-0 items-center justify-center rounded-xl ${thumbnail.wrapper}`}
-    >
-      <span className="text-[10px] font-bold tracking-wider text-slate-500">
-        {thumbnail.label}
-      </span>
+    <div className={`flex h-14 w-20 shrink-0 items-center justify-center rounded-xl ${thumbnail.wrapper}`}>
+      <span className="text-[10px] font-bold tracking-wider text-slate-500">{thumbnail.label}</span>
     </div>
   );
 }
 
 export default function CoursesRoute() {
-  const [activeTab, setActiveTab] =
-    useState<(typeof tabs)[number]["id"]>("all");
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["id"]>("all");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const [level, setLevel] = useState("All Levels");
   const [sortBy, setSortBy] = useState("recent");
 
   const categories = useMemo(() => {
-    return [
-      "All Categories",
-      ...new Set(courses.map((course) => course.category)),
-    ];
+    return ["All Categories", ...new Set(courses.map((course) => course.category))];
   }, []);
 
   const filteredCourses = useMemo(() => {
@@ -271,12 +253,7 @@ export default function CoursesRoute() {
     if (search.trim()) {
       const query = search.toLowerCase();
 
-      result = result.filter(
-        (course) =>
-          course.title.toLowerCase().includes(query) ||
-          course.instructor.toLowerCase().includes(query) ||
-          course.category.toLowerCase().includes(query),
-      );
+      result = result.filter((course) => course.title.toLowerCase().includes(query) || course.instructor.toLowerCase().includes(query) || course.category.toLowerCase().includes(query));
     }
 
     if (category !== "All Categories") {
@@ -316,8 +293,7 @@ export default function CoursesRoute() {
   const tabCounts = useMemo(() => {
     return {
       all: courses.length,
-      published: courses.filter((course) => course.status === "published")
-        .length,
+      published: courses.filter((course) => course.status === "published").length,
       draft: courses.filter((course) => course.status === "draft").length,
       archived: courses.filter((course) => course.status === "archived").length,
     };
@@ -340,13 +316,9 @@ export default function CoursesRoute() {
         {/* Header */}
         <div className="mb-7 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-              Courses
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Courses</h1>
 
-            <p className="mt-1 text-sm text-slate-500 md:text-base">
-              Manage all your courses, content and publishing status.
-            </p>
+            <p className="mt-1 text-sm text-slate-500 md:text-base">Manage all your courses, content and publishing status.</p>
           </div>
 
           <Link
@@ -369,16 +341,9 @@ export default function CoursesRoute() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative pb-3 text-sm font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? "text-slate-900"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`relative pb-3 text-sm font-medium transition-colors ${activeTab === tab.id ? "text-slate-900" : "text-slate-500 hover:text-slate-800"}`}
                 >
-                  {tab.label} ({count})
-                  {activeTab === tab.id && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-slate-900" />
-                  )}
+                  {tab.label} ({count}){activeTab === tab.id && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-slate-900" />}
                 </button>
               );
             })}
@@ -466,11 +431,7 @@ export default function CoursesRoute() {
         {/* Result count */}
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            Showing{" "}
-            <span className="font-semibold text-slate-900">
-              {filteredCourses.length}
-            </span>{" "}
-            course{filteredCourses.length === 1 ? "" : "s"}
+            Showing <span className="font-semibold text-slate-900">{filteredCourses.length}</span> course{filteredCourses.length === 1 ? "" : "s"}
           </p>
         </div>
 
@@ -480,60 +441,37 @@ export default function CoursesRoute() {
             <table className="min-w-[1100px] w-full">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Course
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Course</th>
 
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Instructor
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Instructor</th>
 
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Category
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Category</th>
 
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Level
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Level</th>
 
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Price
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Price</th>
 
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Students
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Students</th>
 
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Status
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
 
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Updated
-                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Updated</th>
 
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Action
-                  </th>
+                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Action</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100">
                 {filteredCourses.length > 0 ? (
                   filteredCourses.map((course) => (
-                    <tr
-                      key={course.id}
-                      className="group transition-colors hover:bg-slate-50/70"
-                    >
+                    <tr key={course.id} className="group transition-colors hover:bg-slate-50/70">
                       {/* Course */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3.5">
                           <CourseThumbnail type={course.thumbnail} />
 
                           <div className="min-w-0">
-                            <p className="max-w-[260px] truncate text-sm font-semibold text-slate-900">
-                              {course.title}
-                            </p>
+                            <p className="max-w-[260px] truncate text-sm font-semibold text-slate-900">{course.title}</p>
 
                             <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
                               <BookOpen className="h-3.5 w-3.5" />
@@ -546,35 +484,25 @@ export default function CoursesRoute() {
                       {/* Instructor */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600">
-                            {course.instructorAvatar}
-                          </div>
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600">{course.instructorAvatar}</div>
 
-                          <span className="text-sm font-medium text-slate-700">
-                            {course.instructor}
-                          </span>
+                          <span className="text-sm font-medium text-slate-700">{course.instructor}</span>
                         </div>
                       </td>
 
                       {/* Category */}
                       <td className="px-5 py-4">
-                        <span className="text-sm text-slate-600">
-                          {course.category}
-                        </span>
+                        <span className="text-sm text-slate-600">{course.category}</span>
                       </td>
 
                       {/* Level */}
                       <td className="px-5 py-4">
-                        <span className="text-sm text-slate-600">
-                          {course.level}
-                        </span>
+                        <span className="text-sm text-slate-600">{course.level}</span>
                       </td>
 
                       {/* Price */}
                       <td className="px-5 py-4">
-                        <span className="text-sm font-semibold text-slate-900">
-                          ${course.price}
-                        </span>
+                        <span className="text-sm font-semibold text-slate-900">${course.price}</span>
                       </td>
 
                       {/* Students */}
@@ -587,37 +515,22 @@ export default function CoursesRoute() {
 
                       {/* Status */}
                       <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClasses(
-                            course.status,
-                          )}`}
-                        >
-                          {getStatusLabel(course.status)}
-                        </span>
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClasses(course.status)}`}>{getStatusLabel(course.status)}</span>
                       </td>
 
                       {/* Updated */}
                       <td className="px-5 py-4">
-                        <span className="whitespace-nowrap text-sm text-slate-500">
-                          {course.updatedAt}
-                        </span>
+                        <span className="whitespace-nowrap text-sm text-slate-500">{course.updatedAt}</span>
                       </td>
 
                       {/* Actions */}
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end">
-                          <Link
-                            to={`/admin/courses/${course.id}/edit`}
-                            className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 opacity-100 transition hover:bg-slate-100"
-                          >
+                          <Link to={`/admin/courses/${course.id}/edit`} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 opacity-100 transition hover:bg-slate-100">
                             Edit
                           </Link>
 
-                          <button
-                            type="button"
-                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                            aria-label={`More actions for ${course.title}`}
-                          >
+                          <button type="button" className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label={`More actions for ${course.title}`}>
                             <CircleEllipsis className="h-5 w-5" />
                           </button>
                         </div>
@@ -632,13 +545,9 @@ export default function CoursesRoute() {
                           <Search className="h-5 w-5 text-slate-400" />
                         </div>
 
-                        <h3 className="text-sm font-semibold text-slate-900">
-                          No courses found
-                        </h3>
+                        <h3 className="text-sm font-semibold text-slate-900">No courses found</h3>
 
-                        <p className="mt-1 text-sm text-slate-500">
-                          Try changing your search or filters.
-                        </p>
+                        <p className="mt-1 text-sm text-slate-500">Try changing your search or filters.</p>
                       </div>
                     </td>
                   </tr>
@@ -651,29 +560,17 @@ export default function CoursesRoute() {
         {/* Bottom */}
         <div className="mt-5 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            Total courses:{" "}
-            <span className="font-semibold text-slate-900">
-              {courses.length}
-            </span>
+            Total courses: <span className="font-semibold text-slate-900">{courses.length}</span>
           </p>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled
-              className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-400"
-            >
+            <button type="button" disabled className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-400">
               Previous
             </button>
 
-            <span className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white">
-              1
-            </span>
+            <span className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white">1</span>
 
-            <button
-              type="button"
-              className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-            >
+            <button type="button" className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
               Next
             </button>
           </div>

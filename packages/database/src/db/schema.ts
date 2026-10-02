@@ -1,43 +1,15 @@
 import { sql } from "drizzle-orm";
-import {
-  boolean,
-  date,
-  index,
-  integer,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  unique,
-  uuid,
-  varchar,
-} from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, pgEnum, pgTable, text, timestamp, unique, uuid, varchar } from "drizzle-orm/pg-core";
 
-export const userRoleEnum = pgEnum("user_role", [
-  "student",
-  "course_creator",
-  "admin",
-]);
+export const userRoleEnum = pgEnum("user_role", ["student", "course_creator", "admin"]);
 
-export const paymentStatusEnum = pgEnum("payment_status", [
-  "pending",
-  "success",
-  "failed",
-  "refunded",
-]);
+export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed", "refunded"]);
 
-export const providerEnum = pgEnum("oauth_provider", [
-  "google",
-  "github",
-  "discord",
-]);
+export const providerEnum = pgEnum("oauth_provider", ["google", "github", "discord"]);
 
-export const courseStatusEnum = pgEnum("course_status", [
-  "draft",
-  "published",
-  "private",
-  "archived",
-]);
+export const courseStatusEnum = pgEnum("course_status", ["draft", "published", "private", "archived"]);
+
+export const courseLevelEnum = pgEnum("course_level", ["beginner", "intermediate", "advanced", "all_levels"]);
 
 export const usersTable = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
@@ -81,23 +53,25 @@ export const coursesTable = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
 
-    title: varchar({ length: 255 }).notNull(),
+    title: varchar({ length: 255 }),
 
     description: varchar({ length: 1000 }),
 
-    price: integer().notNull(),
+    price: integer(),
 
     createdBy: uuid("created_by")
       .notNull()
       .references(() => usersTable.id),
 
-    categoryId: uuid("category_id")
-      .notNull()
-      .references(() => categoriesTable.id),
+    categoryId: uuid("category_id").references(() => categoriesTable.id),
 
     courseLanguage: varchar("course_language", {
       length: 50,
-    }).notNull(),
+    }),
+
+    level: courseLevelEnum("level"),
+
+    thumbnailUrl: text("thumbnail_url"),
 
     status: courseStatusEnum("status").default("draft").notNull(),
 
@@ -122,11 +96,7 @@ export const coursesTable = pgTable(
       .notNull(),
   },
 
-  (table) => [
-    index("courses_created_by_idx").on(table.createdBy),
-    index("courses_status_idx").on(table.status),
-    index("courses_category_id_idx").on(table.categoryId),
-  ],
+  (table) => [index("courses_created_by_idx").on(table.createdBy), index("courses_status_idx").on(table.status), index("courses_category_id_idx").on(table.categoryId)],
 );
 
 export const courseSectionsTable = pgTable("course_sections", {
@@ -188,12 +158,7 @@ export const coursePurchaseTable = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
-    unique("course_purchase_user_course_unique").on(
-      table.userId,
-      table.courseId,
-    ),
-  ],
+  (table) => [unique("course_purchase_user_course_unique").on(table.userId, table.courseId)],
 );
 
 export const reviewsTable = pgTable(
@@ -260,12 +225,8 @@ export const otpTable = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     hashOtp: varchar("hashOtp", { length: 255 }).notNull(),
     email: varchar("email", { length: 255 }).notNull(),
-    createdAt: timestamp("createdAt", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updatedAt", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
     // expiresAt manually set karna hoga (e.g. +15 mins in JS)
     expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
   },
@@ -280,12 +241,8 @@ export const sessionTable = pgTable(
     userId: uuid("userId")
       .references(() => usersTable.id, { onDelete: "cascade" })
       .notNull(),
-    createdAt: timestamp("createdAt", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updatedAt", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
     // expiresAt me defaultNow nahi rakha taaki app logic future time set kar sake
     expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
   },
@@ -306,9 +263,7 @@ export const courseProgressTable = pgTable(
       .references(() => coursesTable.id),
 
     // User ne last kaunsa lesson/content dekha tha
-    lastContentId: uuid("last_content_id").references(
-      () => courseContentsTable.id,
-    ),
+    lastContentId: uuid("last_content_id").references(() => courseContentsTable.id),
 
     progressPercentage: integer("progress_percentage").default(0).notNull(),
 
@@ -330,10 +285,7 @@ export const courseProgressTable = pgTable(
   },
 
   (table) => [
-    unique("course_progress_user_course_unique").on(
-      table.userId,
-      table.courseId,
-    ),
+    unique("course_progress_user_course_unique").on(table.userId, table.courseId),
 
     index("course_progress_user_id_idx").on(table.userId),
     index("course_progress_course_id_idx").on(table.courseId),
@@ -376,10 +328,7 @@ export const contentProgressTable = pgTable(
   },
 
   (table) => [
-    unique("content_progress_user_content_unique").on(
-      table.userId,
-      table.contentId,
-    ),
+    unique("content_progress_user_content_unique").on(table.userId, table.contentId),
 
     index("content_progress_user_id_idx").on(table.userId),
     index("content_progress_content_id_idx").on(table.contentId),
@@ -413,10 +362,7 @@ export const userActivityTable = pgTable(
   },
 
   (table) => [
-    unique("user_activity_user_date_unique").on(
-      table.userId,
-      table.activityDate,
-    ),
+    unique("user_activity_user_date_unique").on(table.userId, table.activityDate),
 
     index("user_activity_user_id_idx").on(table.userId),
     index("user_activity_activity_date_idx").on(table.activityDate),
@@ -451,11 +397,7 @@ export const userGoalsTable = pgTable(
       .notNull(),
   },
 
-  (table) => [
-    unique("user_goals_user_week_unique").on(table.userId, table.weekStart),
-
-    index("user_goals_user_id_idx").on(table.userId),
-  ],
+  (table) => [unique("user_goals_user_week_unique").on(table.userId, table.weekStart), index("user_goals_user_id_idx").on(table.userId)],
 );
 
 export const oauthAccountsTable = pgTable(
@@ -480,4 +422,37 @@ export const oauthAccountsTable = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [unique().on(table.provider, table.providerAccountId)],
+);
+
+export const courseLearningOutcomesTable = pgTable(
+  "course_learning_outcomes",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => coursesTable.id, {
+        onDelete: "cascade",
+      }),
+
+    text: varchar({
+      length: 500,
+    }).notNull(),
+
+    sequenceOrder: integer("sequence_order").notNull(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+
+  (table) => [index("course_learning_outcomes_course_id_idx").on(table.courseId)],
 );

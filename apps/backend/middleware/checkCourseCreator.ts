@@ -1,11 +1,7 @@
 import { db, eq, usersTable } from "@repo/database";
 import type { NextFunction, Request, Response } from "express";
 
-export const checkCourseCreator = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const checkCourseCreator = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId;
 

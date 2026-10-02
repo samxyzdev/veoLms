@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createCourseReview, getCoursePlayer, getCourseProgress, getPurchasedCourses, listCourses, purchaseCourse, saveContentProgress } from "../controllers/courseController";
-import { getDashboardStats, logStudyActivity, updateWeeklyGoal } from "../controllers/dashboardController";
+import { getDashboardStats, logStudyActivity, updateWeeklyGoal } from "../controllers/studentDashboardController";
 import { checkAuth } from "../middleware/checkAuth";
 
 /** Course endpoint registration. Controllers contain validation and use models. */
