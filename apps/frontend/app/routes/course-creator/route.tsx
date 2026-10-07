@@ -12,7 +12,7 @@ import type { Route } from "./+types/route";
 
 export async function clientLoader() {
   try {
-    const [userResponse, statsResponse] = await Promise.all([api.get("/user/me"), api.get("/course-creator/stats")]);
+    const [userResponse, statsResponse] = await Promise.all([api.get("/user/me"), api.get("/course-creator/dashboard/stats")]);
 
     return {
       user: userResponse.data.data,

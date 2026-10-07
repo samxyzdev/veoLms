@@ -1,43 +1,109 @@
 // app/routes/admin/components/courses/content/CourseContent.tsx
 
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { initialCourseSections } from "../../../data/courseContentData";
 import { SectionItem } from "./SectionItem";
 import type { Lesson, Section } from "./types";
 
-export default function CourseContent() {
-  const [sections, setSections] = useState<Section[]>(initialCourseSections);
+type BackendCourseSection = {
+  id: string;
+  courseId: string;
+  title: string;
+  sequenceOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  contents: BackendCourseContent[];
+};
 
-  const [openSections, setOpenSections] = useState<number[]>(
-    initialCourseSections.map((section) => section.id),
-  );
+type BackendCourseContent = {
+  id: string;
+  sectionId: string;
+  title: string;
+  contentType: string;
+  contentUrl: string | null;
+  sequenceOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
 
-  const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
+type CourseContentProps = {
+  sections: BackendCourseSection[];
+};
 
-  function toggleSection(sectionId: number) {
-    setOpenSections((current) =>
-      current.includes(sectionId)
-        ? current.filter((id) => id !== sectionId)
-        : [...current, sectionId],
-    );
+export default function CourseContent({ sections: backendSections }: CourseContentProps) {
+  // ========================================================
+  // BACKEND DATA -> UI DATA
+  // ========================================================
+
+  const initialSections: Section[] = backendSections.map((section) => ({
+    id: section.id,
+    title: section.title,
+    lessons: section.contents.map((content) => ({
+      id: content.id,
+      title: content.title,
+      description: "",
+      type: content.contentType as Lesson["type"],
+      duration: "10 min",
+      freePreview: false,
+      downloadable: false,
+    })),
+  }));
+
+  // ========================================================
+  // STATE
+  // ========================================================
+
+  const [sections, setSections] = useState<Section[]>(initialSections);
+
+  const [openSections, setOpenSections] = useState<string[]>(initialSections.map((section) => String(section.id)));
+
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+
+  // ========================================================
+  // SYNC BACKEND DATA
+  // ========================================================
+
+  useEffect(() => {
+    const mappedSections: Section[] = backendSections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      lessons: section.contents.map((content) => ({
+        id: content.id,
+        title: content.title,
+        description: "",
+        type: content.contentType as Lesson["type"],
+        duration: "10 min",
+        freePreview: false,
+        downloadable: false,
+      })),
+    }));
+
+    setSections(mappedSections);
+
+    setOpenSections(mappedSections.map((section) => String(section.id)));
+  }, [backendSections]);
+
+  // ========================================================
+  // SECTION
+  // ========================================================
+
+  function toggleSection(sectionId: string) {
+    setOpenSections((current) => (current.includes(sectionId) ? current.filter((id) => id !== sectionId) : [...current, sectionId]));
   }
 
   function addSection() {
     const newSection: Section = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       title: `New Section ${sections.length + 1}`,
       lessons: [],
     };
-
     setSections((current) => [...current, newSection]);
-
-    setOpenSections((current) => [...current, newSection.id]);
+    setOpenSections((current) => [...current, String(newSection.id)]);
   }
 
-  function renameSection(sectionId: number) {
-    const section = sections.find((item) => item.id === sectionId);
+  function renameSection(sectionId: string) {
+    const section = sections.find((item) => String(item.id) === sectionId);
 
     if (!section) return;
 
@@ -47,7 +113,7 @@ export default function CourseContent() {
 
     setSections((current) =>
       current.map((item) =>
-        item.id === sectionId
+        String(item.id) === sectionId
           ? {
               ...item,
               title: title.trim(),
@@ -57,45 +123,45 @@ export default function CourseContent() {
     );
   }
 
-  function deleteSection(sectionId: number) {
-    const confirmed = window.confirm(
-      "Delete this section and all its lessons?",
-    );
+  function deleteSection(sectionId: string) {
+    const confirmed = window.confirm("Delete this section and all its lessons?");
 
     if (!confirmed) return;
 
-    setSections((current) =>
-      current.filter((section) => section.id !== sectionId),
-    );
+    setSections((current) => current.filter((section) => String(section.id) !== sectionId));
 
     setOpenSections((current) => current.filter((id) => id !== sectionId));
 
     setActiveLessonId(null);
   }
 
-  function duplicateSection(sectionId: number) {
-    const section = sections.find((item) => item.id === sectionId);
+  function duplicateSection(sectionId: string) {
+    const section = sections.find((item) => String(item.id) === sectionId);
 
     if (!section) return;
 
     const duplicated: Section = {
       ...section,
-      id: Date.now(),
+      id: crypto.randomUUID(),
       title: `${section.title} Copy`,
-      lessons: section.lessons.map((lesson, index) => ({
+      lessons: section.lessons.map((lesson) => ({
         ...lesson,
-        id: Date.now() + index + 1,
+        id: crypto.randomUUID(),
       })),
     };
 
     setSections((current) => [...current, duplicated]);
 
-    setOpenSections((current) => [...current, duplicated.id]);
+    setOpenSections((current) => [...current, String(duplicated.id)]);
   }
 
-  function addLesson(sectionId: number) {
+  // ========================================================
+  // LESSON
+  // ========================================================
+
+  function addLesson(sectionId: string) {
     const lesson: Lesson = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       title: "New Lesson",
       description: "",
       type: "video",
@@ -106,7 +172,7 @@ export default function CourseContent() {
 
     setSections((current) =>
       current.map((section) =>
-        section.id === sectionId
+        String(section.id) === sectionId
           ? {
               ...section,
               lessons: [...section.lessons, lesson],
@@ -115,14 +181,12 @@ export default function CourseContent() {
       ),
     );
 
-    setOpenSections((current) =>
-      current.includes(sectionId) ? current : [...current, sectionId],
-    );
+    setOpenSections((current) => (current.includes(sectionId) ? current : [...current, sectionId]));
 
-    setActiveLessonId(lesson.id);
+    setActiveLessonId(String(lesson.id));
   }
 
-  function openLesson(lessonId: number) {
+  function openLesson(lessonId: string) {
     setActiveLessonId((current) => (current === lessonId ? null : lessonId));
   }
 
@@ -130,32 +194,28 @@ export default function CourseContent() {
     setSections((current) =>
       current.map((section) => ({
         ...section,
-        lessons: section.lessons.map((lesson) =>
-          lesson.id === updatedLesson.id ? updatedLesson : lesson,
-        ),
+        lessons: section.lessons.map((lesson) => (String(lesson.id) === String(updatedLesson.id) ? updatedLesson : lesson)),
       })),
     );
 
     setActiveLessonId(null);
   }
 
-  function deleteLesson(lessonId: number) {
+  function deleteLesson(lessonId: string) {
     setSections((current) =>
       current.map((section) => ({
         ...section,
-        lessons: section.lessons.filter((lesson) => lesson.id !== lessonId),
+        lessons: section.lessons.filter((lesson) => String(lesson.id) !== lessonId),
       })),
     );
 
     setActiveLessonId(null);
   }
 
-  function duplicateLesson(lessonId: number) {
+  function duplicateLesson(lessonId: string) {
     setSections((current) =>
       current.map((section) => {
-        const lessonIndex = section.lessons.findIndex(
-          (lesson) => lesson.id === lessonId,
-        );
+        const lessonIndex = section.lessons.findIndex((lesson) => String(lesson.id) === lessonId);
 
         if (lessonIndex === -1) {
           return section;
@@ -165,7 +225,7 @@ export default function CourseContent() {
 
         const duplicated: Lesson = {
           ...original,
-          id: Date.now(),
+          id: crypto.randomUUID(),
           title: `${original.title} Copy`,
         };
 
@@ -181,19 +241,19 @@ export default function CourseContent() {
     );
   }
 
+  // ========================================================
+  // RENDER
+  // ========================================================
+
   return (
     <div>
-      {/* // Header */}
+      {/* HEADER */}
+
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-[#101537]">
-            Course Content
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight text-[#101537]">Course Content</h2>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Organize your course into sections and lessons. Add videos,
-            articles, quizzes, assignments and more.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Organize your course into sections and lessons. Add videos, articles, quizzes, assignments and more.</p>
         </div>
 
         <button
@@ -205,19 +265,21 @@ export default function CourseContent() {
           Add Section
         </button>
       </div>
-      {/* Sections */}
+
+      {/* SECTIONS */}
+
       <div className="space-y-4">
         {sections.map((section) => (
           <SectionItem
-            key={section.id}
+            key={String(section.id)}
             section={section}
-            isOpen={openSections.includes(section.id)}
+            isOpen={openSections.includes(String(section.id))}
             activeLessonId={activeLessonId}
-            onToggle={() => toggleSection(section.id)}
-            onRename={() => renameSection(section.id)}
-            onDelete={() => deleteSection(section.id)}
-            onDuplicate={() => duplicateSection(section.id)}
-            onAddLesson={() => addLesson(section.id)}
+            onToggle={() => toggleSection(String(section.id))}
+            onRename={() => renameSection(String(section.id))}
+            onDelete={() => deleteSection(String(section.id))}
+            onDuplicate={() => duplicateSection(String(section.id))}
+            onAddLesson={() => addLesson(String(section.id))}
             onOpenLesson={openLesson}
             onDeleteLesson={deleteLesson}
             onDuplicateLesson={duplicateLesson}
@@ -225,7 +287,19 @@ export default function CourseContent() {
           />
         ))}
       </div>
-      {/* Bottom Add Section */}
+
+      {/* EMPTY STATE */}
+
+      {sections.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-6 py-10 text-center">
+          <p className="text-sm font-medium text-slate-700">No sections yet.</p>
+
+          <p className="mt-1 text-sm text-slate-400">Start building your course by adding a section.</p>
+        </div>
+      )}
+
+      {/* BOTTOM ADD SECTION */}
+
       <button
         type="button"
         onClick={addSection}

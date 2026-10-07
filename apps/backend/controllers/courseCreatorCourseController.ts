@@ -1,10 +1,11 @@
-import { and, asc, categoriesTable, count, courseContentsTable, courseSectionsTable, coursesTable, db, desc, eq, inArray, sql } from "@repo/database";
+import { and, asc, categoriesTable, count, courseContentsTable, courseLearningOutcomesTable, courseSectionsTable, coursesTable, db, desc, eq, inArray, sql } from "@repo/database";
 
 import { CreateCourseSchema, CreateCourseVideoSchema, ParamSchema, UpdateCourseSchema } from "@repo/zod";
 
 import type { NextFunction, Request, Response } from "express";
 
-import { z } from "@repo/zod";
+import * as z from "zod";
+import { createPresignedDownloadUrl } from "../services/s3";
 
 const DEFAULT_CATEGORIES = [
   "Web Development",
@@ -49,14 +50,11 @@ async function getOwnedCourse(courseId: string, userId: string) {
       createdBy: coursesTable.createdBy,
       categoryId: coursesTable.categoryId,
       courseLanguage: coursesTable.courseLanguage,
-
       status: coursesTable.status,
       publishedAt: coursesTable.publishedAt,
       archivedAt: coursesTable.archivedAt,
-
       level: coursesTable.level,
       thumbnailUrl: coursesTable.thumbnailUrl,
-
       createdAt: coursesTable.createdAt,
       updatedAt: coursesTable.updatedAt,
     })
@@ -75,6 +73,8 @@ export const listCreatorCourses = async (req: Request, res: Response, next: Next
   try {
     const userId = req.userId;
 
+    console.log("inside list creator courses");
+
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -91,14 +91,11 @@ export const listCreatorCourses = async (req: Request, res: Response, next: Next
         createdBy: coursesTable.createdBy,
         categoryId: coursesTable.categoryId,
         courseLanguage: coursesTable.courseLanguage,
-
         status: coursesTable.status,
         publishedAt: coursesTable.publishedAt,
         archivedAt: coursesTable.archivedAt,
-
         level: coursesTable.level,
         thumbnailUrl: coursesTable.thumbnailUrl,
-
         createdAt: coursesTable.createdAt,
         updatedAt: coursesTable.updatedAt,
       })
@@ -106,15 +103,36 @@ export const listCreatorCourses = async (req: Request, res: Response, next: Next
       .where(eq(coursesTable.createdBy, userId))
       .orderBy(desc(coursesTable.createdAt));
 
+    /* --------------------------------------------------------- */
+    /* Generate temporary GET URL for course thumbnails          */
+    /* --------------------------------------------------------- */
+
+    const coursesWithThumbnailUrls = await Promise.all(
+      courses.map(async (course) => {
+        if (!course.thumbnailUrl) {
+          return course;
+        }
+
+        const thumbnailUrl = await createPresignedDownloadUrl({
+          key: course.thumbnailUrl,
+          expiresIn: 900,
+        });
+
+        return {
+          ...course,
+          thumbnailUrl,
+        };
+      }),
+    );
+
     return res.status(200).json({
       success: true,
-      data: courses,
+      data: coursesWithThumbnailUrls,
     });
   } catch (error) {
     return next(error);
   }
 };
-
 /* -------------------------------------------------------------------------- */
 /* Backward-compatible alias                                                  */
 /* -------------------------------------------------------------------------- */
@@ -275,12 +293,43 @@ export const getCourse = async (req: Request, res: Response, next: NextFunction)
 
     const course = await getOwnedCourse(courseId, userId);
 
+    // yahan courses main thumbnail url hai isko sahi kareke send karna hoga
+
     if (!course) {
       return res.status(404).json({
         success: false,
         message: "Course not found.",
       });
     }
+    /* --------------------------------------------------------- */
+    /* Generate temporary GET URL for course thumbnail           */
+    /* --------------------------------------------------------- */
+
+    let thumbnailUrl: string | null = null;
+
+    if (course.thumbnailUrl) {
+      thumbnailUrl = await createPresignedDownloadUrl({
+        key: course.thumbnailUrl,
+        expiresIn: 900,
+      });
+    }
+
+    /* --------------------------------------------------------- */
+    /* Get course learning outcomes                              */
+    /* --------------------------------------------------------- */
+
+    const learningOutcomes = await db
+      .select({
+        id: courseLearningOutcomesTable.id,
+        courseId: courseLearningOutcomesTable.courseId,
+        text: courseLearningOutcomesTable.text,
+        sequenceOrder: courseLearningOutcomesTable.sequenceOrder,
+        createdAt: courseLearningOutcomesTable.createdAt,
+        updatedAt: courseLearningOutcomesTable.updatedAt,
+      })
+      .from(courseLearningOutcomesTable)
+      .where(eq(courseLearningOutcomesTable.courseId, courseId))
+      .orderBy(asc(courseLearningOutcomesTable.sequenceOrder));
 
     const sections = await db
       .select({
@@ -319,7 +368,11 @@ export const getCourse = async (req: Request, res: Response, next: NextFunction)
     return res.status(200).json({
       success: true,
       data: {
-        course,
+        course: {
+          ...course,
+          thumbnailUrl,
+        },
+        learningOutcomes,
         sections: sectionsWithContents,
       },
     });
@@ -334,18 +387,14 @@ export const getCourse = async (req: Request, res: Response, next: NextFunction)
 
 export const updateCourse = async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId;
-
   if (!userId) {
     return res.status(401).json({
       success: false,
       message: "Authentication required.",
     });
   }
-
   const paramResult = ParamSchema.safeParse(req.params);
-
   const bodyResult = UpdateCourseSchema.safeParse(req.body);
-
   if (!paramResult.success || !bodyResult.success) {
     return res.status(400).json({
       success: false,
@@ -357,28 +406,29 @@ export const updateCourse = async (req: Request, res: Response, next: NextFuncti
       },
     });
   }
-
   const { courseId } = paramResult.data;
   const updates = bodyResult.data;
-
   try {
     const existingCourse = await getOwnedCourse(courseId, userId);
-
     if (!existingCourse) {
       return res.status(404).json({
         success: false,
         message: "Course not found.",
       });
     }
-
     if (existingCourse.status === "archived") {
       return res.status(409).json({
         success: false,
         message: "Archived course cannot be edited. Restore it first.",
       });
     }
-
-    if (updates.categoryId) {
+    /*
+     * -------------------------------------------------------
+     * Validate category only when categoryId is actually
+     * included in the PATCH payload.
+     * -------------------------------------------------------
+     */
+    if (updates.categoryId !== undefined && updates.categoryId !== null) {
       const [category] = await db
         .select({
           id: categoriesTable.id,
@@ -386,7 +436,6 @@ export const updateCourse = async (req: Request, res: Response, next: NextFuncti
         .from(categoriesTable)
         .where(eq(categoriesTable.id, updates.categoryId))
         .limit(1);
-
       if (!category) {
         return res.status(404).json({
           success: false,
@@ -394,37 +443,106 @@ export const updateCourse = async (req: Request, res: Response, next: NextFuncti
         });
       }
     }
-
-    const [course] = await db
-      .update(coursesTable)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(coursesTable.id, courseId), eq(coursesTable.createdBy, userId)))
-      .returning({
-        id: coursesTable.id,
-        status: coursesTable.status,
-        updatedAt: coursesTable.updatedAt,
-      });
-
-    if (!course) {
+    /*
+     * -------------------------------------------------------
+     * Separate learning outcomes from normal course fields.
+     * -------------------------------------------------------
+     */
+    const { learningOutcomes, ...courseUpdates } = updates;
+    /*
+     * -------------------------------------------------------
+     * Update everything atomically.
+     * -------------------------------------------------------
+     */
+    const result = await db.transaction(async (tx) => {
+      let updatedCourse = {
+        id: existingCourse.id,
+        status: existingCourse.status,
+        updatedAt: existingCourse.updatedAt,
+      };
+      /*
+       * -----------------------------------------------------
+       * Update courses table ONLY if course fields were sent.
+       * -----------------------------------------------------
+       */
+      if (Object.keys(courseUpdates).length > 0) {
+        const [course] = await tx
+          .update(coursesTable)
+          .set({
+            ...courseUpdates,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(coursesTable.id, courseId), eq(coursesTable.createdBy, userId)))
+          .returning({
+            id: coursesTable.id,
+            status: coursesTable.status,
+            updatedAt: coursesTable.updatedAt,
+          });
+        if (!course) {
+          throw new Error("COURSE_NOT_FOUND");
+        }
+        updatedCourse = course;
+      }
+      /*
+       * -----------------------------------------------------
+       * Update learning outcomes ONLY when the field was
+       * included in the PATCH payload.
+       * -----------------------------------------------------
+       */
+      if (learningOutcomes !== undefined) {
+        /*
+         * Remove previous outcomes.
+         */
+        await tx.delete(courseLearningOutcomesTable).where(eq(courseLearningOutcomesTable.courseId, courseId));
+        /*
+         * Insert new outcomes.
+         */
+        if (learningOutcomes.length > 0) {
+          await tx.insert(courseLearningOutcomesTable).values(
+            learningOutcomes.map((text, index) => ({
+              courseId,
+              text,
+              sequenceOrder: index + 1,
+            })),
+          );
+        }
+        /*
+         * Since only learning outcomes changed,
+         * courses.updatedAt should also change.
+         */
+        const [course] = await tx
+          .update(coursesTable)
+          .set({
+            updatedAt: new Date(),
+          })
+          .where(and(eq(coursesTable.id, courseId), eq(coursesTable.createdBy, userId)))
+          .returning({
+            id: coursesTable.id,
+            status: coursesTable.status,
+            updatedAt: coursesTable.updatedAt,
+          });
+        if (course) {
+          updatedCourse = course;
+        }
+      }
+      return updatedCourse;
+    });
+    return res.status(200).json({
+      success: true,
+      message: "Course saved successfully.",
+      data: {
+        courseId: result.id,
+        status: result.status,
+        updatedAt: result.updatedAt,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "COURSE_NOT_FOUND") {
       return res.status(404).json({
         success: false,
         message: "Course not found.",
       });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Course saved successfully.",
-      data: {
-        courseId: course.id,
-        status: course.status,
-        updatedAt: course.updatedAt,
-      },
-    });
-  } catch (error) {
     return next(error);
   }
 };
@@ -894,7 +1012,6 @@ export const reorderCourseSections = async (req: Request, res: Response, next: N
     }
 
     const paramResult = ParamSchema.safeParse(req.params);
-
     const bodyResult = ReorderIdsSchema.safeParse(req.body);
 
     if (!paramResult.success || !bodyResult.success) {
@@ -933,14 +1050,14 @@ export const reorderCourseSections = async (req: Request, res: Response, next: N
     }
 
     await db.transaction(async (tx) => {
-      for (let index = 0; index < ids.length; index++) {
+      for (const [index, id] of ids.entries()) {
         await tx
           .update(courseSectionsTable)
           .set({
             sequenceOrder: index + 1,
             updatedAt: new Date(),
           })
-          .where(and(eq(courseSectionsTable.id, ids[index]), eq(courseSectionsTable.courseId, courseId)));
+          .where(and(eq(courseSectionsTable.id, id), eq(courseSectionsTable.courseId, courseId)));
       }
 
       await tx
@@ -1155,14 +1272,14 @@ export const reorderCourseContents = async (req: Request, res: Response, next: N
     }
 
     await db.transaction(async (tx) => {
-      for (let index = 0; index < ids.length; index++) {
+      for (const [index, id] of ids.entries()) {
         await tx
           .update(courseContentsTable)
           .set({
             sequenceOrder: index + 1,
             updatedAt: new Date(),
           })
-          .where(and(eq(courseContentsTable.id, ids[index]), eq(courseContentsTable.sectionId, sectionId)));
+          .where(and(eq(courseContentsTable.id, id), eq(courseContentsTable.sectionId, sectionId)));
       }
 
       await tx

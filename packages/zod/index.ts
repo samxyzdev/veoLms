@@ -9,7 +9,8 @@ const nameSchema = z
   .trim()
   .min(3, "Name must be at least 3 characters")
   .max(100, "Name must be at most 100 characters")
-  // Supports normal names including spaces, apostrophes, hyphens and Unicode.
+  // Supports normal names including spaces, apostrophes,
+  // hyphens and Unicode.
   .regex(/^[\p{L}\p{M} .'-]+$/u, "Name contains invalid characters");
 
 const emailSchema = z.email("Enter a valid email address").trim().toLowerCase();
@@ -25,7 +26,25 @@ const passwordSchema = z
 
 const otpSchema = z.string().regex(/^\d{6}$/, "OTP must be exactly 6 digits");
 
-const roleSchema = z.enum(["user", "admin", "course_creator"]);
+/* -------------------------------------------------------------------------- */
+/* Enums                                                                      */
+/* -------------------------------------------------------------------------- */
+
+export const roleSchema = z.enum(["student", "course_creator", "admin"], {
+  error: "Please select a valid role",
+});
+
+export const courseStatusSchema = z.enum(["draft", "published", "private", "archived"], {
+  error: "Please select a valid course status",
+});
+
+export const courseLevelSchema = z.enum(["beginner", "intermediate", "advanced", "all_levels"], {
+  error: "Please select a valid course level",
+});
+
+export const contentTypeSchema = z.enum(["video", "article", "resource"], {
+  error: "Please select a valid content type",
+});
 
 /* -------------------------------------------------------------------------- */
 /* Auth                                                                       */
@@ -57,11 +76,30 @@ export const ResetPasswordSchema = z.strictObject({
 /* User                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * User representation based on users table.
+ *
+ * roles is an array because a user can have multiple roles:
+ * ["student"]
+ * ["student", "course_creator"]
+ * ["student", "course_creator", "admin"]
+ *
+ * password can be null for OAuth users.
+ */
 export const UserSchema = z.strictObject({
+  id: z.uuid("Invalid user ID"),
+
   name: nameSchema,
+
   email: emailSchema,
-  password: z.string().min(8).max(128),
-  role: roleSchema.default("user"),
+
+  password: z.string().min(8).max(128).nullable(),
+
+  roles: z.array(roleSchema).min(1, "User must have at least one role").default(["student"]),
+
+  createdAt: z.iso.datetime(),
+
+  updatedAt: z.iso.datetime(),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -76,38 +114,133 @@ export const CategoriesSchema = z.strictObject({
 /* Course                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Common validation for course title.
+ */
+const courseTitleSchema = z.string().trim().min(3, "Course title must be at least 3 characters").max(255, "Course title must be at most 255 characters");
+
+/**
+ * Course description.
+ */
+const courseDescriptionSchema = z.string().trim().max(5000, "Description must be at most 5000 characters");
+
+/**
+ * Course price.
+ *
+ * This assumes your API works with a numeric price.
+ */
+const coursePriceSchema = z.number().finite().min(0, "Price cannot be negative").max(10_000_000, "Price is too large");
+
+/**
+ * Course language.
+ */
+const courseLanguageSchema = z.string().trim().min(1, "Course language is required").max(50, "Course language is too long");
+
+/**
+ * Thumbnail storage key / URL.
+ *
+ * Since your storage flow is S3-compatible, this can contain
+ * either a storage key or URL depending on what your backend stores.
+ */
+const thumbnailSchema = z.string().trim().min(1, "Course thumbnail is required").max(2048, "Thumbnail value is too long");
+
+/**
+ * Learning outcome.
+ *
+ * This table is separate from coursesTable.
+ */
+const learningOutcomeTextSchema = z.string().trim().min(1, "Learning outcome cannot be empty").max(200, "Learning outcome must be at most 200 characters");
+
+const learningOutcomesSchema = z.array(learningOutcomeTextSchema).max(6, "You can add at most 6 learning outcomes");
+
+/**
+ * Complete course entity.
+ *
+ * learningOutcomes are intentionally NOT included here because
+ * they are stored in courseLearningOutcomesTable.
+ */
 export const CourseSchema = z.strictObject({
-  title: z.string().trim().min(3, "Course title must be at least 3 characters").max(255, "Course title must be at most 255 characters"),
+  id: z.uuid("Invalid course ID"),
 
-  description: z.string().trim().max(5000, "Description is too long"),
+  title: courseTitleSchema,
 
-  price: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d{1,2})?$/, "Price must be a valid amount")
-    .refine((value) => Number(value) >= 0, "Price cannot be negative"),
+  description: courseDescriptionSchema.nullable(),
+
+  price: coursePriceSchema,
+
+  createdBy: z.uuid("Invalid creator ID"),
+
+  categoryId: z.uuid("Invalid category ID").nullable(),
+
+  courseLanguage: courseLanguageSchema.nullable(),
+
+  level: courseLevelSchema.nullable(),
+
+  thumbnailUrl: thumbnailSchema.nullable(),
+
+  status: courseStatusSchema,
+
+  publishedAt: z.iso.datetime().nullable(),
+
+  archivedAt: z.iso.datetime().nullable(),
+
+  createdAt: z.iso.datetime(),
+
+  updatedAt: z.iso.datetime(),
+});
+
+/* -------------------------------------------------------------------------- */
+/* Learning Outcomes                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Stored representation of a learning outcome.
+ */
+export const CourseLearningOutcomeSchema = z.strictObject({
+  id: z.uuid("Invalid learning outcome ID"),
+
+  courseId: z.uuid("Invalid course ID"),
+
+  text: learningOutcomeTextSchema,
+
+  sequenceOrder: z.number().int("Sequence order must be an integer").min(1, "Sequence order must start from 1"),
+
+  createdAt: z.iso.datetime(),
+
+  updatedAt: z.iso.datetime(),
 });
 
 /* -------------------------------------------------------------------------- */
 /* Create Course                                                              */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Used when creating a complete course record.
+ *
+ * status is intentionally NOT accepted here.
+ *
+ * New courses should be created as draft by the database default.
+ */
 export const CreateCourseSchema = z.strictObject({
-  title: z.string().trim().min(3, "Course title must be at least 3 characters").max(255, "Course title must be at most 255 characters"),
+  title: courseTitleSchema,
 
-  description: z.string().trim().max(1000, "Description must be at most 1000 characters").optional(),
+  description: courseDescriptionSchema.optional(),
 
-  price: z.number().finite().min(0, "Price cannot be negative").max(10_000_000, "Price is too large"),
+  price: coursePriceSchema,
 
-  courseLanguage: z.string().trim().min(1, "Course language is required").max(50, "Course language is too long"),
+  courseLanguage: courseLanguageSchema,
 
   categoryId: z.uuid("Invalid category ID"),
 
-  level: z.enum(["Beginner", "Intermediate", "Advanced", "All Levels"], {
-    error: "Please select a valid course level",
-  }),
+  level: courseLevelSchema,
 
-  thumbnailUrl: z.string().trim().min(1, "Course thumbnail is required").max(2048, "Thumbnail URL is too long"),
+  thumbnailUrl: thumbnailSchema,
+
+  /**
+   * Learning outcomes are stored in
+   * courseLearningOutcomesTable, not coursesTable.
+   */
+  learningOutcomes: learningOutcomesSchema,
 });
 
 /* -------------------------------------------------------------------------- */
@@ -117,19 +250,7 @@ export const CreateCourseSchema = z.strictObject({
 /**
  * Used while creating/saving a draft course.
  *
- * All course fields are optional because a draft can be incomplete.
- *
- * Example:
- * {
- *   title: "Learn React"
- * }
- *
- * or:
- *
- * {
- *   title: "Learn React",
- *   description: "Complete React course"
- * }
+ * Drafts can be incomplete.
  */
 export const CreateCourseDraftSchema = CreateCourseSchema.partial().refine((data) => Object.keys(data).length > 0, "Provide at least one field to save the draft");
 
@@ -138,35 +259,109 @@ export const CreateCourseDraftSchema = CreateCourseSchema.partial().refine((data
 /* -------------------------------------------------------------------------- */
 
 /**
- * Used for PATCH /courses/:courseId
+ * Used for:
  *
- * Since it is a partial schema, any combination of course fields
- * can be updated.
+ * PATCH /course-creator/courses/:courseId
+ *
+ * Any subset of editable fields can be updated.
+ *
+ * status is included because your publish flow uses:
+ *
+ * {
+ *   status: "published"
+ * }
+ *
+ * IMPORTANT:
+ * The backend must control which status transitions are allowed.
+ * Do not trust the client blindly.
  */
-export const UpdateCourseSchema = CreateCourseSchema.partial().refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
+export const UpdateCourseSchema = z
+  .strictObject({
+    title: courseTitleSchema.optional(),
+
+    description: courseDescriptionSchema.optional(),
+
+    price: coursePriceSchema.optional(),
+
+    courseLanguage: courseLanguageSchema.optional(),
+
+    categoryId: z.uuid("Invalid category ID").optional(),
+
+    level: courseLevelSchema.optional(),
+
+    thumbnailUrl: thumbnailSchema.optional(),
+
+    learningOutcomes: learningOutcomesSchema.optional(),
+
+    status: courseStatusSchema.optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
 
 /* -------------------------------------------------------------------------- */
-/* Course content                                                             */
+/* Publish Course                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Optional but recommended:
+ * Keep publishing as a separate controlled schema.
+ *
+ * Client can request publishing, but server decides whether
+ * the course is actually eligible for publishing.
+ */
+export const PublishCourseSchema = z.strictObject({
+  status: z.literal("published"),
+});
+
+/* -------------------------------------------------------------------------- */
+/* Course Section                                                             */
+/* -------------------------------------------------------------------------- */
+
+export const CreateCourseSectionSchema = z.strictObject({
+  title: z.string().trim().min(1, "Section title is required").max(255, "Section title must be at most 255 characters"),
+});
+
+export const CourseSectionSchema = z.strictObject({
+  id: z.uuid("Invalid section ID"),
+
+  courseId: z.uuid("Invalid course ID"),
+
+  title: z.string().trim().min(1, "Section title is required").max(255, "Section title must be at most 255 characters"),
+
+  sequenceOrder: z.number().int("Sequence order must be an integer").min(1, "Sequence order must start from 1"),
+
+  createdAt: z.iso.datetime(),
+
+  updatedAt: z.iso.datetime(),
+});
+
+/* -------------------------------------------------------------------------- */
+/* Course Content                                                             */
 /* -------------------------------------------------------------------------- */
 
 export const CreateCourseVideoSchema = z.strictObject({
-  sectionTitle: z.string().trim().min(1, "Section title is required").max(255),
+  sectionTitle: z.string().trim().min(1, "Section title is required").max(255, "Section title must be at most 255 characters"),
 
-  title: z.string().trim().min(1, "Video title is required").max(255),
+  title: z.string().trim().min(1, "Video title is required").max(255, "Video title must be at most 255 characters"),
 
   contentUrl: z.httpUrl("Content URL must be a valid HTTP/HTTPS URL").max(2000),
 });
 
-export const CourseSectionSchema = z.strictObject({
-  title: z.string().trim().min(1, "Section title is required").max(255),
-});
-
 export const CourseContentSchema = z.strictObject({
-  title: z.string().trim().min(1, "Content title is required").max(255),
+  id: z.uuid("Invalid content ID"),
 
-  contentType: z.enum(["video", "article", "quiz", "assignment"]),
+  sectionId: z.uuid("Invalid section ID"),
 
-  contentUrl: z.httpUrl().max(2000).optional(),
+  title: z.string().trim().min(1, "Content title is required").max(255, "Content title must be at most 255 characters"),
+
+  contentType: contentTypeSchema,
+
+  contentUrl: z.httpUrl("Content URL must be a valid HTTP/HTTPS URL").max(2000).nullable(),
+
+  sequenceOrder: z.number().int("Sequence order must be an integer").min(1, "Sequence order must start from 1"),
+
+  createdAt: z.iso.datetime(),
+
+  updatedAt: z.iso.datetime(),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -187,18 +382,30 @@ export const ParamSchema = z.strictObject({
   courseId: z.uuid("Invalid course ID"),
 });
 
-export const PurchaseCourseSchema = z.strictObject({
-  courseId: z.uuid("Invalid course ID"),
-});
-
 export const ContentProgressParamSchema = z.strictObject({
   contentId: z.uuid("Invalid content ID"),
+});
+
+/* -------------------------------------------------------------------------- */
+/* Purchase                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const PurchaseCourseSchema = z.strictObject({
+  courseId: z.uuid("Invalid course ID"),
 });
 
 /* -------------------------------------------------------------------------- */
 /* Role                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * If your endpoint is specifically:
+ *
+ * PATCH /user/role
+ *
+ * and backend adds this role to the user's existing roles,
+ * this schema is fine.
+ */
 export const UpdateRoleSchema = z.strictObject({
   role: roleSchema,
 });
@@ -214,8 +421,8 @@ export const ContentProgressSchema = z.strictObject({
   watchedSeconds: z
     .number()
     .int("Watched seconds must be an integer")
-    .min(0)
-    .max(24 * 60 * 60),
+    .min(0, "Watched seconds cannot be negative")
+    .max(24 * 60 * 60, "Watched seconds value is too large"),
 
   /**
    * Omitted when only saving watch position.
@@ -231,7 +438,7 @@ export const StudyActivitySchema = z.strictObject({
     .number()
     .int("Minutes must be an integer")
     .min(1, "Minutes must be at least 1")
-    .max(24 * 60),
+    .max(24 * 60, "Minutes cannot exceed 24 hours"),
 
   /**
    * YYYY-MM-DD
@@ -246,8 +453,8 @@ export const WeeklyGoalSchema = z.strictObject({
   targetMinutes: z
     .number()
     .int("Target must be an integer")
-    .min(1)
-    .max(7 * 24 * 60),
+    .min(1, "Target must be at least 1 minute")
+    .max(7 * 24 * 60, "Target cannot exceed one week"),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -277,17 +484,25 @@ export const UpdateProfileSchema = z
   });
 
 /* -------------------------------------------------------------------------- */
-/* Useful inferred types                                                      */
+/* Inferred Types                                                             */
 /* -------------------------------------------------------------------------- */
 
 export type SignupInput = z.infer<typeof SignupSchema>;
 
 export type SigninInput = z.infer<typeof SigninSchema>;
 
+export type UserInput = z.infer<typeof UserSchema>;
+
 export type CreateCourseInput = z.infer<typeof CreateCourseSchema>;
 
 export type CreateCourseDraftInput = z.infer<typeof CreateCourseDraftSchema>;
 
 export type UpdateCourseInput = z.infer<typeof UpdateCourseSchema>;
+
+export type PublishCourseInput = z.infer<typeof PublishCourseSchema>;
+
+export type CreateCourseSectionInput = z.infer<typeof CreateCourseSectionSchema>;
+
+export type CreateCourseVideoInput = z.infer<typeof CreateCourseVideoSchema>;
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;

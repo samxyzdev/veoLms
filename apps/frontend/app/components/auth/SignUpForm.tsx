@@ -19,12 +19,9 @@ import { SocialButtons } from "./SocialButtons";
 type SignUpFormProps = {
   title: string;
   description: string;
-
   actionData?: SignupActionData;
-
   submitText: string;
   submittingText: string;
-
   footerText: string;
   footerLinkText: string;
   footerLinkTo: string;
@@ -32,7 +29,6 @@ type SignUpFormProps = {
 
 export function SignUpForm({ title, description, actionData, submitText, submittingText, footerText, footerLinkText, footerLinkTo }: SignUpFormProps) {
   const navigation = useNavigation();
-
   const [form, setForm] = useState<SignupFormState>({
     name: "",
     email: "",
@@ -41,41 +37,28 @@ export function SignUpForm({ title, description, actionData, submitText, submitt
     otp: "",
     terms: false,
   });
-
   const [touched, setTouched] = useState<SignupTouchedState>({
     name: false,
     email: false,
     password: false,
     confirmPassword: false,
   });
-
   const [otpSent, setOtpSent] = useState(false);
-
   const [emailVerified, setEmailVerified] = useState(false);
-
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-
   const [otpError, setOtpError] = useState("");
-
   const [otpMessage, setOtpMessage] = useState("");
-
   const isSubmitting = navigation.state === "submitting";
-
   // -----------------------------------------
   // Validation
   // -----------------------------------------
-
   const validation = validateSignupForm(form);
-
   // -----------------------------------------
   // Input change
   // -----------------------------------------
-
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
-
     // Email change
     if (name === "email") {
       setForm((prev) => ({
@@ -84,68 +67,52 @@ export function SignUpForm({ title, description, actionData, submitText, submitt
         otp: "",
         terms: false,
       }));
-
       setEmailVerified(false);
       setOtpSent(false);
       setOtpError("");
       setOtpMessage("");
-
       return;
     }
-
     setForm((prev) => ({
       ...prev,
-
       [name]: type === "checkbox" ? checked : value,
     }));
-
     if (name === "otp") {
       setOtpError("");
       setOtpMessage("");
     }
   };
-
   // -----------------------------------------
   // Blur
   // -----------------------------------------
-
   const handleBlur = (field: keyof SignupTouchedState) => {
     setTouched((prev) => ({
       ...prev,
       [field]: true,
     }));
   };
-
   // -----------------------------------------
   // Send OTP
   // -----------------------------------------
-
   const handleSendOtp = async () => {
     setOtpError("");
     setOtpMessage("");
-
     const emailResult = emailSchema.safeParse({
       email: form.email,
     });
-
     if (!emailResult.success) {
       setTouched((prev) => ({
         ...prev,
         email: true,
       }));
-
       return;
     }
-
     try {
       setIsSendingOtp(true);
-
-      await api.post("/otp/generate-otp", {
+      await api.post("/otp/request", {
         email: form.email.trim().toLowerCase(),
       });
-
       setOtpSent(true);
-
       setOtpMessage("OTP has been sent to your email.");
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -157,36 +124,26 @@ export function SignUpForm({ title, description, actionData, submitText, submitt
       setIsSendingOtp(false);
     }
   };
-
   // -----------------------------------------
   // Verify OTP
   // -----------------------------------------
-
   const handleVerifyOtp = async () => {
     setOtpError("");
     setOtpMessage("");
-
     if (form.otp.length !== 6) {
       setOtpError("Please enter a valid 6-digit OTP.");
-
       return;
     }
-
     try {
       setIsVerifyingOtp(true);
-
-      await api.post("/otp/verify-otp", {
+      await api.post("/otp/verify", {
         email: form.email.trim().toLowerCase(),
-
         otp: form.otp.trim(),
       });
-
       setEmailVerified(true);
-
       setOtpMessage("Email verified successfully.");
     } catch (error) {
       setEmailVerified(false);
-
       if (axios.isAxiosError(error)) {
         setOtpError(error.response?.data?.message ?? "Invalid or expired OTP.");
       } else {
@@ -200,23 +157,15 @@ export function SignUpForm({ title, description, actionData, submitText, submitt
   // -----------------------------------------
   // Field errors
   // -----------------------------------------
-
   const nameError = touched.name ? validation.errors.name : actionData?.fieldErrors?.name?.[0];
-
   const emailError = touched.email ? validation.errors.email : actionData?.fieldErrors?.email?.[0];
-
   const passwordError = touched.password ? validation.errors.password : actionData?.fieldErrors?.password?.[0];
-
   const confirmPasswordError = touched.confirmPassword ? validation.errors.confirmPassword : actionData?.fieldErrors?.confirmPassword?.[0];
-
   // -----------------------------------------
   // Submit state
   // -----------------------------------------
-
   const isTermsEnabled = validation.isValid && emailVerified && form.otp.length === 6;
-
   const canSubmit = validation.isValid && emailVerified && form.otp.length === 6 && form.terms && !isSubmitting;
-
   return (
     <AuthLayout title={title} description={description}>
       <SocialButtons />

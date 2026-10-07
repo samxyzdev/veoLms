@@ -1,7 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-
 import { studentRoutes } from "./routes/studentRoutes";
 import { otpRoutes } from "./routes/otpRoutes";
 import { userRoutes } from "./routes/userRoutes";

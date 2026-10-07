@@ -1,22 +1,17 @@
-// app/routes/admin/components/courses/content/types.ts
-
-export type LessonType =
-  "video" | "article" | "quiz" | "assignment" | "file" | "code";
+export type LessonType = "video" | "article" | "quiz" | "assignment";
 
 export type Lesson = {
-  id: number;
+  id: string;
   title: string;
   description: string;
   type: LessonType;
   duration: string;
-  videoUrl?: string;
-  videoFile?: string;
-  freePreview?: boolean;
-  downloadable?: boolean;
+  freePreview: boolean;
+  downloadable: boolean;
 };
 
 export type Section = {
-  id: number;
+  id: string;
   title: string;
   lessons: Lesson[];
 };

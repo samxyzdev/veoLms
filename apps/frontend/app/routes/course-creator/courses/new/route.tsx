@@ -1,11 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import type { ChangeEvent, ReactNode } from "react";
 
 import { BarChart3, Check, ChevronDown, CircleHelp, Folder, Globe, Info, List, Plus, Trash2, Upload, X } from "lucide-react";
 
+import { isAxiosError } from "axios";
+
+import { redirect } from "react-router";
+
 import CourseContent from "../../components/courses/content/CourseContent";
 import PricingAccess from "../../components/courses/pricing/PricingAccess";
 import ReviewPublish from "../../components/courses/review/ReviewPublish";
+
+import { api } from "~/lib/axios";
 
 // =========================================================
 // TYPES
@@ -15,6 +22,15 @@ type Step = {
   id: number;
   title: string;
   description: string;
+};
+
+type SaveState = "idle" | "unsaved" | "saving" | "saved" | "error";
+
+type DraftPayload = {
+  title?: string;
+  description?: string;
+  courseLanguage?: string;
+  level?: "beginner" | "intermediate" | "advanced" | "all_levels";
 };
 
 // =========================================================
@@ -62,6 +78,19 @@ const tips = [
 // =========================================================
 
 const defaultOutcomes = [""];
+
+// =========================================================
+// LEVEL
+// =========================================================
+
+const levelMap = {
+  Beginner: "beginner",
+  Intermediate: "intermediate",
+  Advanced: "advanced",
+  "All Levels": "all_levels",
+} as const;
+
+type UiLevel = keyof typeof levelMap;
 
 // =========================================================
 // SELECT FIELD
@@ -246,11 +275,88 @@ export default function CreateCourseRoute() {
   const [outcomes, setOutcomes] = useState(defaultOutcomes);
 
   // =======================================================
+  // AUTOSAVE
+  // =======================================================
+
+  /**
+   * Backend draft/course ID.
+   *
+   * First save:
+   * POST /course-creator/courses
+   *
+   * Next saves:
+   * PATCH /course-creator/courses/:courseId
+   */
+  const [courseId, setCourseId] = useState<string | null>(null);
+
+  /**
+   * Keep courseId in a ref as well.
+   *
+   * This is important because queued saves must always use
+   * the latest course ID.
+   */
+  const courseIdRef = useRef<string | null>(null);
+
+  /**
+   * 2 second debounce timer.
+   */
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Every change increments this version.
+   *
+   * If a request saves version 3 but the user is already
+   * on version 4, we don't show "Saved" because version 4
+   * still needs to be persisted.
+   */
+  const draftVersionRef = useRef(0);
+
+  /**
+   * Prevent autosave from running on initial mount.
+   */
+  const userHasEditedRef = useRef(false);
+
+  /**
+   * All save requests are queued.
+   *
+   * This prevents:
+   *
+   * request A
+   * request B
+   *
+   * from racing each other and an older response overwriting
+   * newer data.
+   */
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  /**
+   * Keep the latest form values available to the queued
+   * save function.
+   */
+  const latestDraftRef = useRef<DraftPayload>({
+    title: "",
+    description: "",
+    courseLanguage: "",
+  });
+
+  latestDraftRef.current = {
+    title: title.trim() || undefined,
+    description: description.trim() || undefined,
+    courseLanguage: language.trim() || undefined,
+    level: level ? levelMap[level as UiLevel] : undefined,
+  };
+
+  // =======================================================
   // VALIDATION DISPLAY
   // =======================================================
 
   // Errors are NOT shown initially.
   // They appear after clicking Next.
+
   const [showBasicValidation, setShowBasicValidation] = useState(false);
 
   // =======================================================
@@ -335,6 +441,234 @@ export default function CreateCourseRoute() {
   }
 
   // =======================================================
+  // MARK FORM DIRTY
+  // =======================================================
+
+  function markDraftDirty() {
+    userHasEditedRef.current = true;
+
+    draftVersionRef.current += 1;
+
+    setSaveState("unsaved");
+
+    setSaveError(null);
+  }
+
+  // =======================================================
+  // BUILD DRAFT PAYLOAD
+  // =======================================================
+
+  function buildDraftPayload(): DraftPayload {
+    const payload: DraftPayload = {};
+
+    const currentTitle = title.trim();
+
+    const currentDescription = description.trim();
+
+    const currentLanguage = language.trim();
+
+    if (currentTitle) {
+      payload.title = currentTitle;
+    }
+
+    if (currentDescription) {
+      payload.description = currentDescription;
+    }
+
+    if (currentLanguage) {
+      payload.courseLanguage = currentLanguage;
+    }
+
+    if (level) {
+      payload.level = levelMap[level as UiLevel];
+    }
+
+    return payload;
+  }
+
+  // =======================================================
+  // HAS DRAFT DATA
+  // =======================================================
+
+  function hasDraftData() {
+    const payload = buildDraftPayload();
+
+    return Object.keys(payload).length > 0;
+  }
+
+  // =======================================================
+  // SAVE DRAFT
+  // =======================================================
+
+  function queueSaveDraft() {
+    /**
+     * If absolutely nothing that the backend currently
+     * supports exists, don't make an empty request.
+     */
+    if (!hasDraftData()) {
+      return Promise.resolve();
+    }
+
+    const saveOperation = async () => {
+      const payload = buildDraftPayload();
+
+      if (Object.keys(payload).length === 0) {
+        return;
+      }
+
+      const saveVersion = draftVersionRef.current;
+
+      setSaveState("saving");
+
+      setSaveError(null);
+
+      try {
+        let response;
+
+        /**
+         * ---------------------------------------------------
+         * FIRST SAVE
+         * ---------------------------------------------------
+         *
+         * No courseId yet:
+         *
+         * POST /course-creator/courses
+         */
+        if (!courseIdRef.current) {
+          response = await api.post("/course-creator/courses", payload);
+
+          const newCourseId = response.data?.data?.courseId;
+
+          if (!newCourseId || typeof newCourseId !== "string") {
+            throw new Error("Server did not return a course ID.");
+          }
+
+          courseIdRef.current = newCourseId;
+
+          setCourseId(newCourseId);
+        } else {
+          /**
+           * -------------------------------------------------
+           * SUBSEQUENT SAVES
+           * -------------------------------------------------
+           *
+           * PATCH /course-creator/courses/:courseId
+           */
+          response = await api.patch(`/course-creator/courses/${courseIdRef.current}`, payload);
+        }
+
+        /**
+         * Only show "Saved" if the user hasn't changed
+         * anything since this request started.
+         */
+        if (draftVersionRef.current === saveVersion) {
+          setSaveState("saved");
+        } else {
+          /**
+           * User typed something while request was running.
+           * Another debounced save will pick up the newer
+           * state.
+           */
+          setSaveState("unsaved");
+        }
+      } catch (error) {
+        console.error("Course draft save failed:", error);
+
+        let message = "Could not save course draft.";
+
+        if (isAxiosError(error)) {
+          message = error.response?.data?.message ?? message;
+        } else if (error instanceof Error) {
+          message = error.message;
+        }
+
+        setSaveState("error");
+
+        setSaveError(message);
+      }
+    };
+
+    /**
+     * Queue this save after any existing save.
+     *
+     * We use both success and rejection handlers so one
+     * failed request doesn't permanently break the queue.
+     */
+    const queuedOperation = saveQueueRef.current.then(saveOperation, saveOperation);
+
+    saveQueueRef.current = queuedOperation.catch(() => undefined);
+
+    return queuedOperation;
+  }
+
+  // =======================================================
+  // AUTOSAVE EFFECT
+  // =======================================================
+
+  useEffect(() => {
+    /**
+     * Don't autosave when the page first mounts.
+     */
+    if (!userHasEditedRef.current) {
+      return;
+    }
+
+    /**
+     * Don't create requests when there is nothing that can
+     * currently be saved.
+     */
+    if (!hasDraftData()) {
+      return;
+    }
+
+    /**
+     * Reset existing timer on every change.
+     */
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    /**
+     * 2 second debounce.
+     *
+     * User stops typing for 2 seconds
+     *        ↓
+     * save
+     */
+    autosaveTimerRef.current = setTimeout(() => {
+      void queueSaveDraft();
+    }, 2000);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [title, description, level, language, category]);
+
+  // =======================================================
+  // MANUAL SAVE
+  // =======================================================
+
+  async function handleSaveDraft() {
+    /**
+     * Cancel any pending debounce timer.
+     *
+     * Since the user explicitly clicked Save Draft,
+     * we save immediately.
+     */
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+
+      autosaveTimerRef.current = null;
+    }
+
+    userHasEditedRef.current = true;
+
+    await queueSaveDraft();
+  }
+
+  // =======================================================
   // THUMBNAIL
   // =======================================================
 
@@ -349,15 +683,37 @@ export default function CreateCourseRoute() {
     if (file.size > 5 * 1024 * 1024) {
       alert("Maximum thumbnail size is 5MB.");
 
+      event.target.value = "";
+
       return;
+    }
+
+    /**
+     * Revoke previous local object URL before creating
+     * a new one.
+     */
+    if (thumbnailPreview) {
+      URL.revokeObjectURL(thumbnailPreview);
     }
 
     const imageUrl = URL.createObjectURL(file);
 
     setThumbnailPreview(imageUrl);
+
+    /**
+     * Current backend form does not yet receive the actual
+     * uploaded thumbnail URL from this route.
+     *
+     * So we don't pretend the local blob URL has been
+     * persisted to the database.
+     */
   }
 
   function removeThumbnail() {
+    if (thumbnailPreview) {
+      URL.revokeObjectURL(thumbnailPreview);
+    }
+
     setThumbnailPreview(null);
   }
 
@@ -425,7 +781,42 @@ export default function CreateCourseRoute() {
     // FINAL STEP
     // -----------------------------------------------------
 
-    console.log("Publish course");
+    console.log("Publish course", {
+      courseId: courseIdRef.current,
+    });
+  }
+
+  // =======================================================
+  // SAVE STATUS LABEL
+  // =======================================================
+
+  function renderSaveStatus() {
+    if (saveState === "saving") {
+      return <span className="text-xs font-medium text-slate-500">Saving...</span>;
+    }
+
+    if (saveState === "saved") {
+      return (
+        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+          <Check className="h-3.5 w-3.5" />
+          Saved
+        </span>
+      );
+    }
+
+    if (saveState === "unsaved") {
+      return <span className="text-xs font-medium text-amber-600">Unsaved changes</span>;
+    }
+
+    if (saveState === "error") {
+      return (
+        <span className="text-xs font-medium text-red-600" title={saveError ?? undefined}>
+          Save failed
+        </span>
+      );
+    }
+
+    return null;
   }
 
   // =======================================================
@@ -463,9 +854,18 @@ export default function CreateCourseRoute() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Save status */}
+
+            {renderSaveStatus()}
+
             {/* Save Draft */}
 
-            <button type="button" className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={saveState === "saving"}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
               Save Draft
             </button>
 
@@ -495,6 +895,10 @@ export default function CreateCourseRoute() {
             </button>
           </div>
         </div>
+
+        {/* Save error */}
+
+        {saveState === "error" && saveError && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>}
 
         {/* =================================================
             STEP PROGRESS
@@ -547,6 +951,8 @@ export default function CreateCourseRoute() {
                       setTitle(event.target.value);
 
                       markFieldTouched("title");
+
+                      markDraftDirty();
                     }}
                     onBlur={() => markFieldTouched("title")}
                     placeholder="Enter your course title"
@@ -578,6 +984,8 @@ export default function CreateCourseRoute() {
                       setDescription(event.target.value);
 
                       markFieldTouched("description");
+
+                      markDraftDirty();
                     }}
                     onBlur={() => markFieldTouched("description")}
                     rows={4}
@@ -615,6 +1023,16 @@ export default function CreateCourseRoute() {
                         setCategory(value);
 
                         markFieldTouched("category");
+
+                        /**
+                         * The current state stores the
+                         * category label, while the backend
+                         * expects categoryId (UUID).
+                         *
+                         * So we mark the draft dirty, but
+                         * don't send this label as categoryId.
+                         */
+                        markDraftDirty();
                       }}
                       icon={<Folder className="h-4 w-4" />}
                       placeholder="Select a category"
@@ -632,7 +1050,9 @@ export default function CreateCourseRoute() {
 
                     <SelectField
                       value={subcategory}
-                      onChange={setSubcategory}
+                      onChange={(value) => {
+                        setSubcategory(value);
+                      }}
                       placeholder="Select a subcategory"
                       icon={<List className="h-4 w-4" />}
                       options={["Frontend Development", "Backend Development", "Full Stack Development", "Mobile Development", "DevOps"]}
@@ -658,6 +1078,8 @@ export default function CreateCourseRoute() {
                         setLevel(value);
 
                         markFieldTouched("level");
+
+                        markDraftDirty();
                       }}
                       placeholder="Select a level"
                       icon={<BarChart3 className="h-4 w-4" />}
@@ -681,6 +1103,8 @@ export default function CreateCourseRoute() {
                         setLanguage(value);
 
                         markFieldTouched("language");
+
+                        markDraftDirty();
                       }}
                       placeholder="Select a language"
                       icon={<Globe className="h-4 w-4" />}
@@ -822,7 +1246,7 @@ export default function CreateCourseRoute() {
                 onPrevious={() => setCurrentStep(2)}
                 onNext={() => setCurrentStep(4)}
                 onSaveDraft={() => {
-                  console.log("Saving course draft...");
+                  void handleSaveDraft();
                 }}
               />
             )}
@@ -835,10 +1259,12 @@ export default function CreateCourseRoute() {
               <ReviewPublish
                 onPrevious={() => setCurrentStep(3)}
                 onSaveDraft={() => {
-                  console.log("Saving draft...");
+                  void handleSaveDraft();
                 }}
                 onPublish={() => {
-                  console.log("Publishing course...");
+                  console.log("Publishing course...", {
+                    courseId: courseIdRef.current,
+                  });
                 }}
                 onEditBasicInfo={() => setCurrentStep(1)}
                 onEditContent={() => setCurrentStep(2)}

@@ -1,13 +1,4 @@
-import {
-  Award,
-  Bell,
-  BookOpen,
-  Compass,
-  Heart,
-  LayoutDashboard,
-  Settings,
-  Trophy,
-} from "lucide-react";
+import { Award, Bell, BookOpen, Compass, Heart, LayoutDashboard, Settings, Trophy } from "lucide-react";
 
 export const studentSidebarData = {
   navigation: [
@@ -26,7 +17,7 @@ export const studentSidebarData = {
     {
       id: "explore",
       label: "Explore",
-      href: "/dashboard/explore",
+      href: "/dashboard/explore-courses",
       icon: Compass,
     },
     {

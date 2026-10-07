@@ -1,8 +1,10 @@
 import {
   and,
+  asc,
   categoriesTable,
   contentProgressTable,
   courseContentsTable,
+  courseLearningOutcomesTable,
   courseProgressTable,
   coursePurchaseTable,
   courseSectionsTable,
@@ -11,11 +13,13 @@ import {
   eq,
   reviewsTable,
   sql,
+  usersTable,
 } from "@repo/database";
 
 import type { NextFunction, Request, Response } from "express";
 
 import { CommentAndReviewsSchema, ContentProgressParamSchema, ContentProgressSchema, ParamSchema, PurchaseCourseSchema } from "@repo/zod";
+import { createPresignedDownloadUrl } from "../services/s3";
 
 /* -------------------------------------------------------------------------- */
 /* Get Purchased Courses                                                      */
@@ -775,6 +779,223 @@ export const saveContentProgress = async (req: Request, res: Response, next: Nex
         ...summary,
 
         lastContentId: contentId,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getExploreCourse = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    /* ---------------------------------------------------------------------- */
+    /* Authentication                                                         */
+    /* ---------------------------------------------------------------------- */
+
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Validate params                                                        */
+    /* ---------------------------------------------------------------------- */
+
+    const parsedParams = ParamSchema.safeParse(req.params);
+
+    if (!parsedParams.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course ID.",
+        errors: parsedParams.error.flatten(),
+      });
+    }
+
+    const { courseId } = parsedParams.data;
+
+    /* ---------------------------------------------------------------------- */
+    /* Get course                                                             */
+    /* ---------------------------------------------------------------------- */
+
+    const [course] = await db
+      .select({
+        id: coursesTable.id,
+        title: coursesTable.title,
+        description: coursesTable.description,
+        price: coursesTable.price,
+
+        createdBy: coursesTable.createdBy,
+
+        categoryId: coursesTable.categoryId,
+        categoryName: categoriesTable.name,
+
+        courseLanguage: coursesTable.courseLanguage,
+
+        level: coursesTable.level,
+
+        thumbnailUrl: coursesTable.thumbnailUrl,
+
+        status: coursesTable.status,
+
+        publishedAt: coursesTable.publishedAt,
+
+        archivedAt: coursesTable.archivedAt,
+
+        createdAt: coursesTable.createdAt,
+
+        updatedAt: coursesTable.updatedAt,
+
+        creatorName: usersTable.name,
+      })
+      .from(coursesTable)
+      .innerJoin(usersTable, eq(coursesTable.createdBy, usersTable.id))
+      .leftJoin(categoriesTable, eq(coursesTable.categoryId, categoriesTable.id))
+      .where(and(eq(coursesTable.id, courseId), eq(coursesTable.status, "published")))
+      .limit(1);
+
+    /* ---------------------------------------------------------------------- */
+    /* Course not found                                                       */
+    /* ---------------------------------------------------------------------- */
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found.",
+      });
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Thumbnail                                                              */
+    /* ---------------------------------------------------------------------- */
+
+    let thumbnailUrl: string | null = course.thumbnailUrl;
+
+    if (course.thumbnailUrl) {
+      thumbnailUrl = await createPresignedDownloadUrl({
+        key: course.thumbnailUrl,
+        expiresIn: 900,
+      });
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Learning Outcomes                                                      */
+    /* ---------------------------------------------------------------------- */
+
+    const learningOutcomes = await db
+      .select({
+        id: courseLearningOutcomesTable.id,
+
+        courseId: courseLearningOutcomesTable.courseId,
+
+        text: courseLearningOutcomesTable.text,
+
+        sequenceOrder: courseLearningOutcomesTable.sequenceOrder,
+
+        createdAt: courseLearningOutcomesTable.createdAt,
+
+        updatedAt: courseLearningOutcomesTable.updatedAt,
+      })
+      .from(courseLearningOutcomesTable)
+      .where(eq(courseLearningOutcomesTable.courseId, courseId))
+      .orderBy(asc(courseLearningOutcomesTable.sequenceOrder));
+
+    /* ---------------------------------------------------------------------- */
+    /* Course Sections                                                        */
+    /* ---------------------------------------------------------------------- */
+
+    const sections = await db
+      .select({
+        id: courseSectionsTable.id,
+
+        courseId: courseSectionsTable.courseId,
+
+        title: courseSectionsTable.title,
+
+        sequenceOrder: courseSectionsTable.sequenceOrder,
+
+        createdAt: courseSectionsTable.createdAt,
+
+        updatedAt: courseSectionsTable.updatedAt,
+      })
+      .from(courseSectionsTable)
+      .where(eq(courseSectionsTable.courseId, courseId))
+      .orderBy(asc(courseSectionsTable.sequenceOrder));
+
+    /* ---------------------------------------------------------------------- */
+    /* Course Contents                                                        */
+    /* ---------------------------------------------------------------------- */
+
+    const contents = await db
+      .select({
+        id: courseContentsTable.id,
+
+        sectionId: courseContentsTable.sectionId,
+
+        title: courseContentsTable.title,
+
+        contentType: courseContentsTable.contentType,
+
+        sequenceOrder: courseContentsTable.sequenceOrder,
+
+        // isPreview: courseContentsTable.isPreview,
+
+        createdAt: courseContentsTable.createdAt,
+
+        updatedAt: courseContentsTable.updatedAt,
+      })
+      .from(courseContentsTable)
+      .innerJoin(courseSectionsTable, eq(courseContentsTable.sectionId, courseSectionsTable.id))
+      .where(eq(courseSectionsTable.courseId, courseId))
+      .orderBy(asc(courseContentsTable.sequenceOrder));
+
+    /* ---------------------------------------------------------------------- */
+    /* Purchase check                                                         */
+    /* ---------------------------------------------------------------------- */
+
+    const [purchase] = await db
+      .select({
+        id: coursePurchaseTable.id,
+      })
+      .from(coursePurchaseTable)
+      .where(and(eq(coursePurchaseTable.courseId, courseId), eq(coursePurchaseTable.userId, userId)))
+      .limit(1);
+
+    const isPurchased = Boolean(purchase);
+
+    /* ---------------------------------------------------------------------- */
+    /* Build sections with contents                                           */
+    /* ---------------------------------------------------------------------- */
+
+    const sectionsWithContents = sections.map((section) => ({
+      ...section,
+
+      contents: contents.filter((content) => content.sectionId === section.id).sort((a, b) => a.sequenceOrder - b.sequenceOrder),
+    }));
+
+    /* ---------------------------------------------------------------------- */
+    /* Response                                                               */
+    /* ---------------------------------------------------------------------- */
+
+    return res.status(200).json({
+      success: true,
+
+      data: {
+        course: {
+          ...course,
+          thumbnailUrl,
+        },
+
+        learningOutcomes,
+
+        sections: sectionsWithContents,
+
+        access: {
+          isPurchased,
+        },
       },
     });
   } catch (error) {

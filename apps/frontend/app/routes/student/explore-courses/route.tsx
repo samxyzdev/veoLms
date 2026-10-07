@@ -4,38 +4,80 @@ import type { Route } from "../+types/route";
 import { Categories } from "../components/explore/Categories";
 import { CourseFilters } from "../components/explore/CourseFilters";
 
-import {
-  ExploreCourseCard,
-  type ExploreCourse,
-} from "../components/explore/ExploreCourseCard";
+import { ExploreCourseCard, type ExploreCourse } from "../components/explore/ExploreCourseCard";
 
 import { ExploreHeader } from "../components/explore/ExploreHeader";
 
 import { api } from "~/lib/axios";
+
+/* -------------------------------------------------------------------------- */
+/* Backend response type                                                      */
+/* -------------------------------------------------------------------------- */
+
+type StudentCourseResponse = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  price: number | null;
+  createdBy: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  courseLanguage: string | null;
+  level: "beginner" | "intermediate" | "advanced" | "all_levels" | null;
+  thumbnailUrl: string | null;
+  status: "published" | "draft" | "private" | "archived";
+  publishedAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Loader                                                                     */
+/* -------------------------------------------------------------------------- */
 
 /**
  * Public route
  * No authentication check is required here.
  */
 export async function clientLoader() {
-  const response = await api.get("/course");
+  const response = await api.get("/student/courses");
 
-  /**
-   * Supports:
-   *
-   * 1. { courses: [...] }
-   * 2. [...]
-   */
-  if (Array.isArray(response.data)) {
-    return response.data as ExploreCourse[];
-  }
+  const backendCourses = (response.data?.data ?? []) as StudentCourseResponse[];
 
-  return (response.data.courses ?? []) as ExploreCourse[];
+  const courses: ExploreCourse[] = backendCourses.map((course) => {
+    return {
+      id: course.id,
+      title: course.title ?? "Untitled Course",
+      description: course.description ?? "",
+      price: course.price ?? 0,
+      createdBy: course.createdBy,
+      categoryId: course.categoryId,
+      categoryName: course.categoryName,
+      courseLanguage: course.courseLanguage,
+      level: course.level,
+      thumbnail: course.thumbnailUrl,
+      badge: null,
+      instructor: "You",
+      category: course.categoryId ?? "Uncategorized",
+      duration: "0h",
+      rating: 0,
+      students: "0",
+      status: course.status,
+      publishedAt: course.publishedAt,
+      archivedAt: course.archivedAt,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+    };
+  });
+
+  return courses;
 }
+/* -------------------------------------------------------------------------- */
+/* Page                                                                       */
+/* -------------------------------------------------------------------------- */
 
-export default function ExploreCoursesPage({
-  loaderData,
-}: Route.ComponentProps) {
+export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps) {
   const [activeCategory, setActiveCategory] = useState("all");
 
   const [search, setSearch] = useState("");
@@ -48,54 +90,64 @@ export default function ExploreCoursesPage({
 
   const [sortBy, setSortBy] = useState("popular");
 
-  /**
-   * Courses now come from backend.
-   *
-   * Example:
-   * GET /course
-   * -> 10 courses
-   */
   const courses = loaderData;
+
+  /* ------------------------------------------------------------------------ */
+  /* Filter + Sort                                                            */
+  /* ------------------------------------------------------------------------ */
 
   const filteredCourses = useMemo(() => {
     let result = [...courses];
 
-    // -----------------------------
-    // Category
-    // -----------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Category                                                               */
+    /* ---------------------------------------------------------------------- */
+
     if (activeCategory !== "all") {
       result = result.filter((course) => course.categoryId === activeCategory);
     }
 
-    // -----------------------------
-    // Search
-    // -----------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Search                                                                 */
+    /* ---------------------------------------------------------------------- */
+
     const searchValue = search.trim().toLowerCase();
 
     if (searchValue) {
       result = result.filter((course) => {
-        return (
-          course.title.toLowerCase().includes(searchValue) ||
-          course.description.toLowerCase().includes(searchValue) ||
-          course.instructor.toLowerCase().includes(searchValue) ||
-          course.category.toLowerCase().includes(searchValue)
-        );
+        const title = course.title?.toLowerCase() ?? "";
+
+        const description = course.description?.toLowerCase() ?? "";
+
+        const instructor = course.instructor?.toLowerCase() ?? "";
+
+        const category = course.category?.toLowerCase() ?? "";
+
+        const language = course.courseLanguage?.toLowerCase() ?? "";
+
+        return title.includes(searchValue) || description.includes(searchValue) || instructor.includes(searchValue) || category.includes(searchValue) || language.includes(searchValue);
       });
     }
 
-    // -----------------------------
-    // Level
-    // -----------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Level                                                                  */
+    /* ---------------------------------------------------------------------- */
+
     if (level !== "All Levels") {
-      result = result.filter((course) => course.level === level);
+      result = result.filter((course) => {
+        const courseLevel = formatLevel(course.level);
+
+        return courseLevel === level;
+      });
     }
 
-    // -----------------------------
-    // Duration
-    // -----------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Duration                                                               */
+    /* ---------------------------------------------------------------------- */
+
     if (duration !== "Any Duration") {
       result = result.filter((course) => {
-        const hours = parseDurationToHours(course.duration);
+        const hours = parseDurationToHours(course.duration ?? "0h");
 
         if (duration === "0 - 5 Hours") {
           return hours <= 5;
@@ -113,36 +165,31 @@ export default function ExploreCoursesPage({
       });
     }
 
-    // -----------------------------
-    // Rating
-    // -----------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Rating                                                                 */
+    /* ---------------------------------------------------------------------- */
+
     if (rating !== "Any Rating") {
       const minimumRating = Number(rating.replace("+", ""));
 
-      result = result.filter((course) => course.rating >= minimumRating);
+      result = result.filter((course) => (course.rating ?? 0) >= minimumRating);
     }
 
-    // -----------------------------
-    // Sorting
-    // -----------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Sorting                                                                */
+    /* ---------------------------------------------------------------------- */
+
     switch (sortBy) {
       case "rating":
-        result.sort((a, b) => b.rating - a.rating);
+        result.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
         break;
 
       case "students":
-        result.sort(
-          (a, b) =>
-            parseStudentCount(b.students) - parseStudentCount(a.students),
-        );
+        result.sort((a, b) => parseStudentCount(b.students ?? "0") - parseStudentCount(a.students ?? "0"));
         break;
 
       case "newest":
-        /**
-         * This assumes backend sends newest first.
-         * Reverse it for oldest-to-newest.
-         */
-        result.reverse();
+        result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         break;
 
       case "popular":
@@ -156,9 +203,10 @@ export default function ExploreCoursesPage({
     return result;
   }, [courses, activeCategory, search, level, duration, rating, sortBy]);
 
-  // -----------------------------
-  // Clear all filters
-  // -----------------------------
+  /* ------------------------------------------------------------------------ */
+  /* Clear Filters                                                            */
+  /* ------------------------------------------------------------------------ */
+
   function clearFilters() {
     setActiveCategory("all");
     setSearch("");
@@ -168,24 +216,28 @@ export default function ExploreCoursesPage({
     setSortBy("popular");
   }
 
+  /* ------------------------------------------------------------------------ */
+  /* Render                                                                   */
+  /* ------------------------------------------------------------------------ */
+
   return (
     <div className="min-w-0">
-      {/* ------------------------- */}
-      {/* Header + Hero */}
-      {/* ------------------------- */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Header + Hero                                                      */}
+      {/* ------------------------------------------------------------------ */}
+
       <ExploreHeader />
 
-      {/* ------------------------- */}
-      {/* Categories */}
-      {/* ------------------------- */}
-      <Categories
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
-      />
+      {/* ------------------------------------------------------------------ */}
+      {/* Categories                                                         */}
+      {/* ------------------------------------------------------------------ */}
 
-      {/* ------------------------- */}
-      {/* Filters */}
-      {/* ------------------------- */}
+      <Categories activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Filters                                                            */}
+      {/* ------------------------------------------------------------------ */}
+
       <CourseFilters
         search={search}
         level={level}
@@ -199,23 +251,20 @@ export default function ExploreCoursesPage({
         onSortChange={setSortBy}
       />
 
-      {/* ------------------------- */}
-      {/* Results count */}
-      {/* ------------------------- */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Results Count                                                      */}
+      {/* ------------------------------------------------------------------ */}
+
       <div className="mb-4">
         <p className="text-xs font-medium text-slate-500">
-          Showing{" "}
-          <span className="font-bold text-slate-900">
-            {filteredCourses.length}
-          </span>{" "}
-          of <span className="font-bold text-slate-900">{courses.length}</span>{" "}
-          courses
+          Showing <span className="font-bold text-slate-900">{filteredCourses.length}</span> of <span className="font-bold text-slate-900">{courses.length}</span> courses
         </p>
       </div>
 
-      {/* ------------------------- */}
-      {/* Course Grid */}
-      {/* ------------------------- */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Course Grid                                                        */}
+      {/* ------------------------------------------------------------------ */}
+
       {filteredCourses.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {filteredCourses.map((course) => (
@@ -224,29 +273,42 @@ export default function ExploreCoursesPage({
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 text-2xl">
-            🔎
-          </div>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 text-2xl">🔎</div>
 
-          <h3 className="mt-4 text-sm font-bold text-slate-900">
-            No courses found
-          </h3>
+          <h3 className="mt-4 text-sm font-bold text-slate-900">No courses found</h3>
 
-          <p className="mt-1 text-xs text-slate-400">
-            Try changing your search or filters.
-          </p>
+          <p className="mt-1 text-xs text-slate-400">Try changing your search or filters.</p>
 
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="mt-5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700"
-          >
+          <button type="button" onClick={clearFilters} className="mt-5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700">
             Clear filters
           </button>
         </div>
       )}
     </div>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function formatLevel(level: ExploreCourse["level"]): string {
+  switch (level) {
+    case "beginner":
+      return "Beginner";
+
+    case "intermediate":
+      return "Intermediate";
+
+    case "advanced":
+      return "Advanced";
+
+    case "all_levels":
+      return "All Levels";
+
+    default:
+      return "All Levels";
+  }
 }
 
 /**
@@ -258,6 +320,7 @@ export default function ExploreCoursesPage({
  */
 function parseDurationToHours(duration: string): number {
   const hoursMatch = duration.match(/(\d+(?:\.\d+)?)\s*h/i);
+
   const minutesMatch = duration.match(/(\d+)\s*m/i);
 
   const hours = hoursMatch ? Number(hoursMatch[1]) : 0;
@@ -278,6 +341,10 @@ function parseStudentCount(value: string): number {
   const normalized = value.trim().toLowerCase();
 
   const number = parseFloat(normalized);
+
+  if (Number.isNaN(number)) {
+    return 0;
+  }
 
   if (normalized.includes("k")) {
     return number * 1_000;

@@ -1,14 +1,6 @@
 // app/routes/admin/components/courses/content/SectionItem.tsx
 
-import {
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  GripVertical,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { LessonEditor } from "./LessonEditor";
 import type { Section, Lesson } from "./types";
@@ -29,7 +21,9 @@ export function SectionItem({
 }: {
   section: Section;
   isOpen: boolean;
-  activeLessonId: number | null;
+
+  // UUID/string ID
+  activeLessonId: string | null;
 
   onToggle: () => void;
   onRename: () => void;
@@ -37,9 +31,12 @@ export function SectionItem({
   onDuplicate: () => void;
 
   onAddLesson: () => void;
-  onOpenLesson: (lessonId: number) => void;
-  onDeleteLesson: (lessonId: number) => void;
-  onDuplicateLesson: (lessonId: number) => void;
+
+  // UUID/string IDs
+  onOpenLesson: (lessonId: string) => void;
+  onDeleteLesson: (lessonId: string) => void;
+  onDuplicateLesson: (lessonId: string) => void;
+
   onSaveLesson: (lesson: Lesson) => void;
 }) {
   const totalMinutes = section.lessons.reduce((total, lesson) => {
@@ -56,15 +53,9 @@ export function SectionItem({
           <GripVertical className="h-5 w-5 shrink-0 cursor-grab text-slate-400" />
 
           <div className="flex min-w-0 items-center gap-2">
-            <h3 className="truncate text-sm font-bold text-slate-900">
-              Section: {section.title}
-            </h3>
+            <h3 className="truncate text-sm font-bold text-slate-900">Section: {section.title}</h3>
 
-            <button
-              type="button"
-              onClick={onRename}
-              className="rounded p-1 text-slate-400 hover:bg-white hover:text-violet-600"
-            >
+            <button type="button" onClick={onRename} className="rounded p-1 text-slate-400 hover:bg-white hover:text-violet-600">
               <Pencil className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -77,31 +68,15 @@ export function SectionItem({
         </div>
 
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onToggle}
-            className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-slate-700"
-          >
-            {isOpen ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
+          <button type="button" onClick={onToggle} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-slate-700">
+            {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
 
-          <button
-            type="button"
-            onClick={onDuplicate}
-            className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-violet-600"
-          >
+          <button type="button" onClick={onDuplicate} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-violet-600">
             <Copy className="h-4 w-4" />
           </button>
 
-          <button
-            type="button"
-            onClick={onDelete}
-            className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"
-          >
+          <button type="button" onClick={onDelete} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -119,68 +94,38 @@ export function SectionItem({
                   <button
                     type="button"
                     onClick={() => onOpenLesson(lesson.id)}
-                    className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
-                      isActive ? "bg-violet-50/50" : "hover:bg-slate-50"
-                    }`}
+                    className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${isActive ? "bg-violet-50/50" : "hover:bg-slate-50"}`}
                   >
                     <GripVertical className="h-4 w-4 shrink-0 text-slate-300" />
 
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
-                      {index + 1}
-                    </div>
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">{index + 1}</div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        {lesson.title}
-                      </p>
+                      <p className="truncate text-sm font-semibold text-slate-900">{lesson.title}</p>
 
-                      <p className="mt-0.5 truncate text-xs text-slate-400">
-                        {lesson.description || "No lesson description"}
-                      </p>
+                      <p className="mt-0.5 truncate text-xs text-slate-400">{lesson.description || "No lesson description"}</p>
                     </div>
 
-                    <span className="hidden rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-600 md:inline-flex">
-                      {lesson.type}
-                    </span>
+                    <span className="hidden rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-600 md:inline-flex">{lesson.type}</span>
 
-                    <span className="hidden text-xs text-slate-400 sm:block">
-                      {lesson.duration}
-                    </span>
+                    <span className="hidden text-xs text-slate-400 sm:block">{lesson.duration}</span>
                   </button>
 
                   {/* Editor */}
-                  {isActive && (
-                    <LessonEditor
-                      lesson={lesson}
-                      onSave={onSaveLesson}
-                      onClose={() => onOpenLesson(lesson.id)}
-                    />
-                  )}
+                  {isActive && <LessonEditor lesson={lesson} onSave={onSaveLesson} onClose={() => onOpenLesson(lesson.id)} />}
 
                   {/* Actions */}
                   {!isActive && (
                     <div className="flex justify-end gap-1 px-4 pb-2">
-                      <button
-                        type="button"
-                        onClick={() => onOpenLesson(lesson.id)}
-                        className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-violet-600"
-                      >
+                      <button type="button" onClick={() => onOpenLesson(lesson.id)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-violet-600">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onDuplicateLesson(lesson.id)}
-                        className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-violet-600"
-                      >
+                      <button type="button" onClick={() => onDuplicateLesson(lesson.id)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-violet-600">
                         <Copy className="h-3.5 w-3.5" />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onDeleteLesson(lesson.id)}
-                        className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500"
-                      >
+                      <button type="button" onClick={() => onDeleteLesson(lesson.id)} className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

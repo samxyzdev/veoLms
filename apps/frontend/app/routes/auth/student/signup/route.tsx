@@ -6,7 +6,7 @@ import type { SignupActionData } from "~/lib/auth/signupTypes";
 
 export async function clientAction({ request }: Route.ClientActionArgs) {
   return handleSignup(request, {
-    endpoint: "/student/signup",
+    endpoint: "/user/signup",
     redirectTo: "/signin",
 
     title: "Create your account",

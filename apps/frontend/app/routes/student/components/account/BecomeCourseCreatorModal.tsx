@@ -1,11 +1,4 @@
-import {
-  BarChart3,
-  BookOpen,
-  Check,
-  GraduationCap,
-  Users,
-  X,
-} from "lucide-react";
+import { BarChart3, BookOpen, Check, GraduationCap, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useRevalidator } from "react-router";
 import { isAxiosError } from "axios";
@@ -17,10 +10,7 @@ type BecomeCourseCreatorModalProps = {
   onClose: () => void;
 };
 
-export function BecomeCourseCreatorModal({
-  open,
-  onClose,
-}: BecomeCourseCreatorModalProps) {
+export function BecomeCourseCreatorModal({ open, onClose }: BecomeCourseCreatorModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -53,7 +43,7 @@ export function BecomeCourseCreatorModal({
        *
        * No userId is required in the request body.
        */
-      const response = await api.patch("/user/course-creator/activate");
+      const response = await api.patch("/student/course-creator/activate");
 
       console.log(response.data);
 
@@ -86,10 +76,7 @@ export function BecomeCourseCreatorModal({
        * Backend returned a known error.
        */
       if (isAxiosError(error)) {
-        setErrorMessage(
-          error.response?.data?.message ??
-            "Could not update your account. Please try again.",
-        );
+        setErrorMessage(error.response?.data?.message ?? "Could not update your account. Please try again.");
 
         return;
       }
@@ -149,32 +136,20 @@ export function BecomeCourseCreatorModal({
             </div>
 
             {/* Title */}
-            <h2 className="mt-5 text-xl font-bold text-slate-900">
-              You're now a Course Creator!
-            </h2>
+            <h2 className="mt-5 text-xl font-bold text-slate-900">You're now a Course Creator!</h2>
 
             {/* Description */}
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Your account has been upgraded successfully. You now have access
-              to the Course Creator dashboard and can start creating your own
-              courses.
+              Your account has been upgraded successfully. You now have access to the Course Creator dashboard and can start creating your own courses.
             </p>
 
             {/* Dashboard button */}
-            <button
-              type="button"
-              onClick={handleGoToDashboard}
-              className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
-            >
+            <button type="button" onClick={handleGoToDashboard} className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
               Go to Course Creator Dashboard
             </button>
 
             {/* Close button */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-            >
+            <button type="button" onClick={onClose} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
               Close
             </button>
           </div>
@@ -202,15 +177,10 @@ export function BecomeCourseCreatorModal({
               </div>
 
               {/* Title */}
-              <h2 className="mt-4 text-xl font-bold text-slate-900">
-                Become a Course Creator
-              </h2>
+              <h2 className="mt-4 text-xl font-bold text-slate-900">Become a Course Creator</h2>
 
               {/* Description */}
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Start creating and publishing your own courses on Learnly. Your
-                account will get access to the Course Creator dashboard.
-              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">Start creating and publishing your own courses on Learnly. Your account will get access to the Course Creator dashboard.</p>
             </div>
 
             {/* Benefits */}
@@ -222,13 +192,9 @@ export function BecomeCourseCreatorModal({
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">
-                    Create and publish courses
-                  </p>
+                  <p className="text-sm font-semibold text-slate-800">Create and publish courses</p>
 
-                  <p className="text-xs text-slate-500">
-                    Share your knowledge with learners
-                  </p>
+                  <p className="text-xs text-slate-500">Share your knowledge with learners</p>
                 </div>
               </div>
 
@@ -239,13 +205,9 @@ export function BecomeCourseCreatorModal({
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">
-                    Reach learners
-                  </p>
+                  <p className="text-sm font-semibold text-slate-800">Reach learners</p>
 
-                  <p className="text-xs text-slate-500">
-                    Help students grow their skills
-                  </p>
+                  <p className="text-xs text-slate-500">Help students grow their skills</p>
                 </div>
               </div>
 
@@ -256,13 +218,9 @@ export function BecomeCourseCreatorModal({
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">
-                    Manage your courses
-                  </p>
+                  <p className="text-sm font-semibold text-slate-800">Manage your courses</p>
 
-                  <p className="text-xs text-slate-500">
-                    Track your content and performance
-                  </p>
+                  <p className="text-xs text-slate-500">Track your content and performance</p>
                 </div>
               </div>
             </div>
@@ -270,9 +228,7 @@ export function BecomeCourseCreatorModal({
             {/* Error */}
             {errorMessage && (
               <div className="mx-6 mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                <p className="text-center text-sm font-medium text-red-600">
-                  {errorMessage}
-                </p>
+                <p className="text-center text-sm font-medium text-red-600">{errorMessage}</p>
               </div>
             )}
 

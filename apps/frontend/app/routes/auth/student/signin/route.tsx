@@ -8,7 +8,7 @@ import type { SigninActionData } from "~/lib/auth/signinTypes";
 
 export async function clientAction({ request }: Route.ClientActionArgs) {
   return handleSignin(request, {
-    endpoint: "/student/signin",
+    endpoint: "/user/signin",
     redirectTo: "/dashboard",
     includeRememberMe: false,
   });
