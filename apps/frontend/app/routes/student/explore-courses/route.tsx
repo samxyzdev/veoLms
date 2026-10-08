@@ -399,7 +399,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
               studentsCount={course.studentsCount}
               isPublished={course.isPublished}
               isWishlisted={course.isWishlisted}
-              href={`/student/explore-courses/${course.id}`}
+              href={`/dashboard/explore-courses/${course.id}`}
             />
           ))}
         </div>

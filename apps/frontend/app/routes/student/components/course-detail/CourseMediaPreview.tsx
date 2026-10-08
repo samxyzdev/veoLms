@@ -1,46 +1,57 @@
-import { ArrowDown, Play } from "lucide-react";
+import { Play } from "lucide-react";
 
 import type { CourseDetail } from "../../explore-courses/$courseId/route";
-import { CourseThumbnail, getCourseArtKey } from "../CourseThumbnail";
 
 type Props = {
   course: CourseDetail;
 };
 
 export function CourseMediaPreview({ course }: Props) {
-  function goToCurriculum() {
-    document.getElementById("course-content")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
-    <div className="group relative aspect-video min-h-[230px] overflow-hidden rounded-xl border border-white bg-slate-950 shadow-[0_12px_32px_rgba(22,30,65,0.16)] sm:min-h-[280px] xl:min-h-0">
-      <CourseThumbnail
-        artKey={getCourseArtKey(course.title)}
-        title={course.title}
-        imageUrl={course.thumbnailUrl}
-        className="absolute inset-0 h-full w-full"
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/15 to-slate-950/10" />
-        <span className="absolute left-4 top-4 rounded-md bg-emerald-500 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-sm">Course overview</span>
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 shadow-xl">
+      <div className="relative aspect-video">
+        {course.thumbnailUrl ? (
+          <img src={course.thumbnailUrl} alt={course.title || "Course thumbnail"} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-slate-800">
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white">
+                <Play size={24} />
+              </div>
+
+              <p className="mt-3 text-xs text-white/70">Preview unavailable</p>
+            </div>
+          </div>
+        )}
+
+        {/* Dark gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+
+        {/* Preview badge */}
+        <div className="absolute left-3 top-3 rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm">FREE PREVIEW</div>
+
+        {/* Play */}
         <button
           type="button"
-          onClick={goToCurriculum}
-          aria-label="Explore course lessons"
-          className="absolute left-1/2 top-[47%] flex h-[62px] w-[62px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-slate-950/25 text-white shadow-lg backdrop-blur transition hover:scale-105 hover:bg-white hover:text-indigo-600"
+          className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white bg-white/10 text-white backdrop-blur-sm transition hover:scale-105 hover:bg-white/20"
+          aria-label="Play course preview"
         >
-          <Play size={24} fill="currentColor" className="ml-1" />
+          <Play size={27} fill="currentColor" className="ml-1" />
         </button>
-        <div className="absolute inset-x-0 bottom-10 flex items-end justify-between gap-4 p-5 sm:p-7">
-          <div className="max-w-[75%] text-white">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">Learn at your own pace</p>
-            <p className="mt-1 line-clamp-2 text-xl font-extrabold leading-tight sm:text-2xl">{course.title}</p>
-          </div>
+
+        {/* Bottom title */}
+        <div className="absolute inset-x-0 bottom-0 p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/70">Learn at your own pace</p>
+
+          <h1 className="mt-1 text-2xl font-extrabold text-white sm:text-3xl">{course.title || "Untitled Course"}</h1>
         </div>
-        <button type="button" onClick={goToCurriculum} className="absolute bottom-0 left-0 right-0 flex h-10 items-center justify-between border-t border-white/15 bg-slate-950/50 px-4 text-[11px] font-semibold text-white/90 backdrop-blur-sm">
-          <span className="flex items-center gap-2"><ArrowDown size={14} /> Browse course content</span>
-          <span className="hidden text-white/70 sm:inline">Browse lessons and sections below</span>
-        </button>
-      </CourseThumbnail>
+      </div>
+
+      {/* Fake media footer / helpful hint */}
+      <div className="flex items-center justify-between bg-slate-950 px-4 py-2.5 text-[10px] font-semibold text-white/80">
+        <span>↓ Browse course content</span>
+        <span className="hidden sm:block">Browse lessons and sections below</span>
+      </div>
     </div>
   );
 }

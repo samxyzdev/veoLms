@@ -1,4 +1,4 @@
-import { Check, ShoppingCart } from "lucide-react";
+import { CheckCircle2, ShoppingCart } from "lucide-react";
 import { Link } from "react-router";
 
 import type { CourseDetail } from "../../explore-courses/$courseId/route";
@@ -9,50 +9,64 @@ type Props = {
 };
 
 function formatPrice(price: number | null) {
-  if (!price || price === 0) {
+  if (price == null || price === 0) {
     return "Free";
   }
 
-  return `₹${price.toLocaleString("en-IN")}`;
+  return `₹${(price / 100).toLocaleString("en-IN", {
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 export function CoursePurchaseCard({ course, isPurchased }: Props) {
+  const price = formatPrice(course.price);
+
   return (
-    <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)] xl:sticky xl:top-24">
-      <div className="flex items-end justify-between gap-2">
-        <p className="text-[29px] font-extrabold leading-none tracking-tight text-slate-950">{formatPrice(course.price)}</p>
-        <span className="rounded-md bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">Course access</span>
+    <aside className="self-start rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
+      {/* Price */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-3xl font-extrabold tracking-tight text-slate-950">{price}</h2>
+
+        <span className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[9px] font-bold text-emerald-600">Course access</span>
       </div>
 
+      {/* Primary */}
       {isPurchased ? (
-        <Link to={`/dashboard/my-learning/${course.id}`} className="mt-5 flex h-11 w-full items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white transition hover:bg-indigo-700">
+        <Link
+          to={`/dashboard/my-learning/${course.id}`}
+          className="mt-4 flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-700"
+        >
           Continue Learning
         </Link>
       ) : (
-        <>
-          <button type="button" className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 text-xs font-bold text-white transition hover:bg-indigo-700">
-            <ShoppingCart size={17} />
-            {course.price ? "Buy Course" : "Enroll for Free"}
-          </button>
-
-          <button type="button" className="mt-2.5 flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-indigo-500 bg-white text-xs font-bold text-slate-800 transition hover:bg-indigo-50">
-            <ShoppingCart size={15} />
-            Add to Cart
-          </button>
-        </>
+        <button type="button" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-700">
+          {course.price == null || course.price === 0 ? "Enroll for Free" : "Buy Course"}
+        </button>
       )}
 
-      <div className="mt-5 space-y-2.5">
+      {/* Cart */}
+      {!isPurchased && (
+        <button
+          type="button"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500 bg-white px-4 py-3 text-xs font-bold text-slate-800 transition hover:bg-indigo-50"
+        >
+          <ShoppingCart size={14} />
+          Add to Cart
+        </button>
+      )}
+
+      {/* Features */}
+      <div className="mt-5 space-y-3">
         {["Lifetime access", "Access on all devices", "Course updates", "Learning progress tracking"].map((item) => (
-          <div key={item} className="flex items-center gap-2.5 text-[11px] text-slate-800">
-            <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-              <Check size={11} strokeWidth={3} className="text-emerald-700" />
-            </div>
+          <div key={item} className="flex items-center gap-2 text-[11px] text-slate-700">
+            <CheckCircle2 size={15} className="shrink-0 text-emerald-500" fill="currentColor" strokeWidth={1.5} />
 
             {item}
           </div>
         ))}
       </div>
+
+      {!isPurchased && <div className="mt-5 rounded-xl bg-pink-50 px-3 py-3 text-[10px] leading-4 text-pink-700">Course access and enrollment details will be available after enrollment.</div>}
     </aside>
   );
 }

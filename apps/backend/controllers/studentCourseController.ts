@@ -849,12 +849,71 @@ export const getExploreCourse = async (req: Request, res: Response, next: NextFu
 
         updatedAt: coursesTable.updatedAt,
 
+        /* ------------------------------------------------------------------ */
+        /* Creator                                                            */
+        /* ------------------------------------------------------------------ */
+
         creatorName: usersTable.name,
+
+        /* ------------------------------------------------------------------ */
+        /* Students / Enrollment count                                       */
+        /* ------------------------------------------------------------------ */
+
+        studentsCount: sql<number>`
+          (
+            SELECT COUNT(*)::int
+            FROM ${coursePurchaseTable}
+            WHERE ${coursePurchaseTable.courseId} = ${coursesTable.id}
+          )
+        `.as("students_count"),
+
+        /* ------------------------------------------------------------------ */
+        /* Review count                                                       */
+        /* ------------------------------------------------------------------ */
+
+        reviewCount: sql<number>`
+          (
+            SELECT COUNT(*)::int
+            FROM ${reviewsTable}
+            WHERE ${reviewsTable.courseId} = ${coursesTable.id}
+          )
+        `.as("review_count"),
+
+        /* ------------------------------------------------------------------ */
+        /* Average rating                                                     */
+        /* ------------------------------------------------------------------ */
+
+        rating: sql<number | null>`
+          (
+            SELECT ROUND(
+              AVG(${reviewsTable.rating})::numeric,
+              1
+            )
+            FROM ${reviewsTable}
+            WHERE ${reviewsTable.courseId} = ${coursesTable.id}
+          )
+        `.as("rating"),
       })
       .from(coursesTable)
+
+      /* -------------------------------------------------------------------- */
+      /* Creator                                                              */
+      /* -------------------------------------------------------------------- */
+
       .innerJoin(usersTable, eq(coursesTable.createdBy, usersTable.id))
+
+      /* -------------------------------------------------------------------- */
+      /* Category                                                             */
+      /* -------------------------------------------------------------------- */
+
       .leftJoin(categoriesTable, eq(coursesTable.categoryId, categoriesTable.id))
+
+      /* -------------------------------------------------------------------- */
+      /* Only published course                                               */
+      /* -------------------------------------------------------------------- */
+
       .where(and(eq(coursesTable.id, courseId), eq(coursesTable.status, "published")))
+
       .limit(1);
 
     /* ---------------------------------------------------------------------- */
@@ -941,16 +1000,17 @@ export const getExploreCourse = async (req: Request, res: Response, next: NextFu
 
         sequenceOrder: courseContentsTable.sequenceOrder,
 
-        // isPreview: courseContentsTable.isPreview,
-
         createdAt: courseContentsTable.createdAt,
 
         updatedAt: courseContentsTable.updatedAt,
       })
       .from(courseContentsTable)
+
       .innerJoin(courseSectionsTable, eq(courseContentsTable.sectionId, courseSectionsTable.id))
+
       .where(eq(courseSectionsTable.courseId, courseId))
-      .orderBy(asc(courseContentsTable.sequenceOrder));
+
+      .orderBy(asc(courseSectionsTable.sequenceOrder), asc(courseContentsTable.sequenceOrder));
 
     /* ---------------------------------------------------------------------- */
     /* Purchase check                                                         */
@@ -973,8 +1033,26 @@ export const getExploreCourse = async (req: Request, res: Response, next: NextFu
     const sectionsWithContents = sections.map((section) => ({
       ...section,
 
-      contents: contents.filter((content) => content.sectionId === section.id).sort((a, b) => a.sequenceOrder - b.sequenceOrder),
+      contents: contents.filter((content) => content.sectionId === section.id),
     }));
+
+    /* ---------------------------------------------------------------------- */
+    /* Final response data                                                    */
+    /* ---------------------------------------------------------------------- */
+
+    const courseData = {
+      ...course,
+
+      thumbnailUrl,
+
+      // PostgreSQL COUNT can be returned as string
+      studentsCount: Number(course.studentsCount),
+
+      reviewCount: Number(course.reviewCount),
+
+      // null when the course has no reviews
+      rating: course.rating === null ? null : Number(course.rating),
+    };
 
     /* ---------------------------------------------------------------------- */
     /* Response                                                               */
@@ -984,15 +1062,9 @@ export const getExploreCourse = async (req: Request, res: Response, next: NextFu
       success: true,
 
       data: {
-        course: {
-          ...course,
-          thumbnailUrl,
-        },
-
+        course: courseData,
         learningOutcomes,
-
         sections: sectionsWithContents,
-
         access: {
           isPurchased,
         },
