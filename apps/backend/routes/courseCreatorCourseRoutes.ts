@@ -7,17 +7,14 @@ import {
   listCategories,
   listCreatorCourses,
   updateCourse,
-
   // Course lifecycle
   publishCourse,
   makeCoursePrivate,
   archiveCourse,
   restoreCourse,
-
   // Course sections
   createCourseSection,
   reorderCourseSections,
-
   // Course contents
   addCourseContent,
   reorderCourseContents,
@@ -26,56 +23,25 @@ import { createCourseThumbnailUploadUrl } from "../controllers/courseCreatorUplo
 
 export const courseCreatorCourseRoutes = Router();
 
-// GET /api/v1/course-creator/courses
+// COURSE LIST + CATEGORIES
 courseCreatorCourseRoutes.get("/", listCreatorCourses);
-// POST /api/v1/course-creator/courses
-// Create a new course draft
 courseCreatorCourseRoutes.post("/", createCourse);
-// GET /api/v1/course-creator/courses/:courseId
-// Get one course for editing
-courseCreatorCourseRoutes.get("/:courseId", getCourse);
-// PATCH /api/v1/course-creator/courses/:courseId
-// Used for:
-// - autosave
-// - Save Draft
-// - editing course information
-courseCreatorCourseRoutes.patch("/:courseId", updateCourse);
-/* -------------------------------------------------------------------------- */
-/* COURSE LIFECYCLE                                                           */
-/* -------------------------------------------------------------------------- */
-// PATCH /api/v1/course-creator/courses/:courseId/publish
-courseCreatorCourseRoutes.patch("/:courseId/publish", publishCourse);
-// PATCH /api/v1/course-creator/courses/:courseId/private
-courseCreatorCourseRoutes.patch("/:courseId/private", makeCoursePrivate);
-// PATCH /api/v1/course-creator/courses/:courseId/archive
-courseCreatorCourseRoutes.patch("/:courseId/archive", archiveCourse);
-// PATCH /api/v1/course-creator/courses/:courseId/restore
-courseCreatorCourseRoutes.patch("/:courseId/restore", restoreCourse);
-/* -------------------------------------------------------------------------- */
-/* COURSE SECTIONS                                                            */
-/* -------------------------------------------------------------------------- */
-// POST /api/v1/course-creator/courses/:courseId/sections
-courseCreatorCourseRoutes.post("/:courseId/sections", createCourseSection);
-// PATCH /api/v1/course-creator/courses/:courseId/sections/reorder
-courseCreatorCourseRoutes.patch("/:courseId/sections/reorder", reorderCourseSections);
-/* -------------------------------------------------------------------------- */
-/* COURSE CONTENT                                                             */
-/* -------------------------------------------------------------------------- */
-// POST /api/v1/course-creator/sections/:sectionId/contents
-courseCreatorCourseRoutes.post("/sections/:sectionId/contents", addCourseContent);
-// PATCH /api/v1/course-creator/sections/:sectionId/contents/reorder
-courseCreatorCourseRoutes.patch("/sections/:sectionId/contents/reorder", reorderCourseContents);
-/* -------------------------------------------------------------------------- */
-/* VIDEO                                                                      */
-/* -------------------------------------------------------------------------- */
-// POST /api/v1/course-creator/courses/:courseId/videos
-courseCreatorCourseRoutes.post("/:courseId/videos", addCourseVideo);
-/* -------------------------------------------------------------------------- *
-/* CATEGORIES                                                                 */
-/* -------------------------------------------------------------------------- */
-// GET /api/v1/course-creator/categories
 courseCreatorCourseRoutes.get("/categories", listCategories);
-/* -------------------------------------------------------------------------- *
-/* THUMBNAIL                                                                 */
-/* -------------------------------------------------------------------------- */
+// COURSE LIFECYCLE
+courseCreatorCourseRoutes.patch("/:courseId/publish", publishCourse);
+courseCreatorCourseRoutes.patch("/:courseId/private", makeCoursePrivate);
+courseCreatorCourseRoutes.patch("/:courseId/archive", archiveCourse);
+courseCreatorCourseRoutes.patch("/:courseId/restore", restoreCourse);
+// COURSE SECTIONS
+courseCreatorCourseRoutes.post("/:courseId/sections", createCourseSection);
+courseCreatorCourseRoutes.patch("/:courseId/sections/reorder", reorderCourseSections);
+// COURSE CONTENT
+courseCreatorCourseRoutes.post("/sections/:sectionId/contents", addCourseContent);
+courseCreatorCourseRoutes.patch("/sections/:sectionId/contents/reorder", reorderCourseContents);
+//  VIDEO
+courseCreatorCourseRoutes.post("/:courseId/videos", addCourseVideo);
+// THUMBNAIL
 courseCreatorCourseRoutes.post("/:courseId/thumbnail/presign", createCourseThumbnailUploadUrl);
+// COURSE
+courseCreatorCourseRoutes.get("/:courseId", getCourse);
+courseCreatorCourseRoutes.patch("/:courseId", updateCourse);

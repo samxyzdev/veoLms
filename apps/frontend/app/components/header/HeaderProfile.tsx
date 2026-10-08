@@ -5,22 +5,12 @@ import { Link } from "react-router";
 
 import type { HeaderMode, HeaderUser } from "./types";
 import { BecomeCourseCreatorModal } from "~/routes/student/components/account/BecomeCourseCreatorModal";
+import { getInitials } from "~/lib/format";
 
 type HeaderProfileProps = {
   user: HeaderUser;
   mode: HeaderMode;
 };
-
-function getInitials(name: string) {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "U"
-  );
-}
 
 function getRoleLabel(mode: HeaderMode) {
   switch (mode) {

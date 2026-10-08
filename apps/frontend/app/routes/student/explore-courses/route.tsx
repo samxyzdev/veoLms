@@ -7,6 +7,7 @@ import { CourseFilters } from "../components/explore/CourseFilters";
 import { ExploreCourseCard, type ExploreCourse } from "../components/explore/ExploreCourseCard";
 
 import { ExploreHeader } from "../components/explore/ExploreHeader";
+import { formatCourseLevel, type CourseLevel } from "~/lib/course";
 
 import { api } from "~/lib/axios";
 
@@ -23,7 +24,7 @@ type StudentCourseResponse = {
   categoryId: string | null;
   categoryName: string | null;
   courseLanguage: string | null;
-  level: "beginner" | "intermediate" | "advanced" | "all_levels" | null;
+  level: CourseLevel;
   thumbnailUrl: string | null;
   status: "published" | "draft" | "private" | "archived";
   publishedAt: string | null;
@@ -135,7 +136,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
 
     if (level !== "All Levels") {
       result = result.filter((course) => {
-        const courseLevel = formatLevel(course.level);
+        const courseLevel = formatCourseLevel(course.level);
 
         return courseLevel === level;
       });
@@ -291,25 +292,6 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
-
-function formatLevel(level: ExploreCourse["level"]): string {
-  switch (level) {
-    case "beginner":
-      return "Beginner";
-
-    case "intermediate":
-      return "Intermediate";
-
-    case "advanced":
-      return "Advanced";
-
-    case "all_levels":
-      return "All Levels";
-
-    default:
-      return "All Levels";
-  }
-}
 
 /**
  * Converts values such as:

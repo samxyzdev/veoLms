@@ -7,14 +7,13 @@ import { Link, redirect, useLoaderData } from "react-router";
 import { isAxiosError } from "axios";
 
 import { api } from "~/lib/axios";
+import { formatCourseLevel, type CourseLevel } from "~/lib/course";
 
 // =========================================================
 // TYPES
 // =========================================================
 
 type CourseStatus = "published" | "draft" | "private" | "archived";
-
-type CourseLevel = "beginner" | "intermediate" | "advanced" | "all_levels";
 
 type CreatorCourse = {
   id: string;
@@ -116,25 +115,6 @@ function formatDate(date: string | null) {
     day: "2-digit",
     year: "numeric",
   });
-}
-
-function formatLevel(level: CourseLevel | null) {
-  switch (level) {
-    case "beginner":
-      return "Beginner";
-
-    case "intermediate":
-      return "Intermediate";
-
-    case "advanced":
-      return "Advanced";
-
-    case "all_levels":
-      return "All Levels";
-
-    default:
-      return "—";
-  }
 }
 
 function getStatusClasses(status: CourseStatus) {
@@ -293,7 +273,7 @@ export default function CoursesRoute() {
 
     if (level !== "All Levels") {
       result = result.filter((course) => {
-        return formatLevel(course.level) === level;
+        return formatCourseLevel(course.level, "—") === level;
       });
     }
 
@@ -586,7 +566,7 @@ export default function CoursesRoute() {
                         {/* LEVEL */}
 
                         <td className="px-5 py-4">
-                          <span className="text-sm text-slate-600">{formatLevel(course.level)}</span>
+                          <span className="text-sm text-slate-600">{formatCourseLevel(course.level, "—")}</span>
                         </td>
 
                         {/* PRICE */}

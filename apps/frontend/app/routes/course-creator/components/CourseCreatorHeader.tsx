@@ -1,4 +1,5 @@
 import { Bell, CalendarDays, ChevronDown, Search } from "lucide-react";
+import { getInitials } from "~/lib/format";
 
 type CourseCreatorUser = {
   id: string;
@@ -11,21 +12,10 @@ type CourseCreatorHeaderProps = {
   courseCreator: CourseCreatorUser;
 };
 
-function getInitials(name: string) {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "A"
-  );
-}
-
 export function CourseCreatorHeader({
   courseCreator,
 }: CourseCreatorHeaderProps) {
-  const initials = getInitials(courseCreator.name);
+  const initials = getInitials(courseCreator.name, "A");
 
   return (
     <header className="border-b border-slate-100 bg-white">

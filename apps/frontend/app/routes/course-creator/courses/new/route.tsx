@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { ChangeEvent, ReactNode } from "react";
+import type { ChangeEvent } from "react";
 
-import { BarChart3, Check, ChevronDown, CircleHelp, Folder, Globe, Info, List, Plus, Trash2, Upload, X } from "lucide-react";
+import { BarChart3, Check, CircleHelp, Folder, Globe, Info, List, Plus, Trash2, Upload, X } from "lucide-react";
 
 import { isAxiosError } from "axios";
 
@@ -13,6 +13,8 @@ import PricingAccess from "../../components/courses/pricing/PricingAccess";
 import ReviewPublish from "../../components/courses/review/ReviewPublish";
 
 import { api } from "~/lib/axios";
+import { COURSE_LEVEL_OPTIONS, getCourseLevelValue, type CourseLevel } from "~/lib/course";
+import { CourseFormSelect as SelectField } from "~/components/forms/CourseFormSelect";
 
 // =========================================================
 // TYPES
@@ -30,7 +32,7 @@ type DraftPayload = {
   title?: string;
   description?: string;
   courseLanguage?: string;
-  level?: "beginner" | "intermediate" | "advanced" | "all_levels";
+  level?: CourseLevel;
 };
 
 // =========================================================
@@ -82,62 +84,6 @@ const defaultOutcomes = [""];
 // =========================================================
 // LEVEL
 // =========================================================
-
-const levelMap = {
-  Beginner: "beginner",
-  Intermediate: "intermediate",
-  Advanced: "advanced",
-  "All Levels": "all_levels",
-} as const;
-
-type UiLevel = keyof typeof levelMap;
-
-// =========================================================
-// SELECT FIELD
-// =========================================================
-
-function SelectField({
-  value,
-  onChange,
-  options,
-  icon,
-  placeholder = "Select an option",
-  error = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-  icon: ReactNode;
-  placeholder?: string;
-  error?: boolean;
-}) {
-  return (
-    <div className="relative">
-      {/* Left icon */}
-      <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{icon}</div>
-
-      {/* Select */}
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={`h-11 w-full appearance-none rounded-xl bg-white pl-11 pr-10 text-sm text-slate-900 outline-none transition ${
-          error ? "border border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100" : "border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-        }`}
-      >
-        <option value="">{placeholder}</option>
-
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-
-      {/* Right icon */}
-      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-    </div>
-  );
-}
 
 // =========================================================
 // COURSE THUMBNAIL
@@ -347,7 +293,7 @@ export default function CreateCourseRoute() {
     title: title.trim() || undefined,
     description: description.trim() || undefined,
     courseLanguage: language.trim() || undefined,
-    level: level ? levelMap[level as UiLevel] : undefined,
+    level: level ? getCourseLevelValue(level) : undefined,
   };
 
   // =======================================================
@@ -480,7 +426,7 @@ export default function CreateCourseRoute() {
     }
 
     if (level) {
-      payload.level = levelMap[level as UiLevel];
+      payload.level = getCourseLevelValue(level);
     }
 
     return payload;
@@ -1084,7 +1030,7 @@ export default function CreateCourseRoute() {
                       placeholder="Select a level"
                       icon={<BarChart3 className="h-4 w-4" />}
                       error={showLevelError}
-                      options={["Beginner", "Intermediate", "Advanced", "All Levels"]}
+                      options={COURSE_LEVEL_OPTIONS}
                     />
 
                     {showLevelError && <p className="mt-1.5 text-xs font-medium text-red-500">Please select a level.</p>}

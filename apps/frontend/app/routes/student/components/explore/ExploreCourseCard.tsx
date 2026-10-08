@@ -1,6 +1,8 @@
 import { Link } from "react-router";
 import { ArrowRight, Heart, Languages, Tag } from "lucide-react";
-import type { ReactNode } from "react";
+import { CourseThumbnail, getCourseArtKey } from "../CourseThumbnail";
+import { formatCourseLevel, type CourseLevel } from "~/lib/course";
+import { getInitials } from "~/lib/format";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -21,9 +23,11 @@ export type ExploreCourse = {
 
   categoryName: string | null;
 
+  category: string;
+
   courseLanguage: string | null;
 
-  level: "beginner" | "intermediate" | "advanced" | "all_levels" | null;
+  level: CourseLevel;
 
   /**
    * Presigned GET URL returned by backend.
@@ -62,149 +66,8 @@ interface ExploreCourseCardProps {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Thumbnail fallback styles                                                  */
-/* -------------------------------------------------------------------------- */
-
-const thumbnailStyles: Record<string, string> = {
-  react: "from-slate-950 via-indigo-950 to-cyan-500",
-
-  node: "from-slate-950 via-emerald-950 to-green-500",
-
-  html: "from-orange-500 via-red-500 to-blue-500",
-
-  typescript: "from-blue-700 via-blue-600 to-cyan-400",
-
-  nextjs: "from-black via-slate-900 to-slate-700",
-
-  design: "from-pink-500 via-purple-500 to-orange-400",
-
-  javascript: "from-yellow-400 via-yellow-500 to-orange-500",
-
-  git: "from-orange-500 via-red-600 to-slate-900",
-
-  default: "from-indigo-500 to-violet-500",
-};
-
-/* -------------------------------------------------------------------------- */
-/* Thumbnail fallback content                                                 */
-/* -------------------------------------------------------------------------- */
-
-const thumbnailText: Record<string, ReactNode> = {
-  react: <span className="text-5xl text-cyan-300">⚛</span>,
-
-  node: (
-    <span className="text-3xl font-extrabold tracking-wide text-white">
-      node
-      <span className="ml-1 text-sm text-green-300">JS</span>
-    </span>
-  ),
-
-  html: (
-    <div className="flex items-center gap-3">
-      <span className="rounded-lg bg-white/10 px-3 py-2 text-3xl font-black text-white backdrop-blur">5</span>
-
-      <span className="rounded-lg bg-white/10 px-3 py-2 text-3xl font-black text-white backdrop-blur">3</span>
-    </div>
-  ),
-
-  typescript: (
-    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-blue-600">
-      <span className="text-3xl font-black text-white">TS</span>
-    </div>
-  ),
-
-  nextjs: (
-    <span className="text-3xl font-light tracking-[0.15em] text-white">
-      NEXT
-      <span className="text-sm tracking-normal">.js</span>
-    </span>
-  ),
-
-  design: (
-    <div className="relative h-16 w-16">
-      <span className="absolute left-0 top-0 h-8 w-8 rounded-full bg-orange-500" />
-
-      <span className="absolute right-0 top-0 h-8 w-8 rounded-full bg-pink-400" />
-
-      <span className="absolute bottom-0 left-0 h-8 w-8 rounded-full bg-sky-400" />
-
-      <span className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-emerald-400" />
-
-      <span className="absolute left-4 top-4 h-8 w-8 rounded-full bg-violet-500" />
-    </div>
-  ),
-
-  javascript: (
-    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-yellow-400 shadow-inner">
-      <span className="text-2xl font-black text-slate-900">JS</span>
-    </div>
-  ),
-
-  git: <span className="text-3xl font-black text-white">git</span>,
-
-  default: <span className="text-3xl font-black tracking-wide text-white">COURSE</span>,
-};
-
-/* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
-
-function getThumbnailKey(title: string) {
-  const value = title.toLowerCase();
-
-  if (value.includes("typescript") || value.includes("type script")) {
-    return "typescript";
-  }
-
-  if (value.includes("javascript") || value.includes("java script")) {
-    return "javascript";
-  }
-
-  if (value.includes("react")) {
-    return "react";
-  }
-
-  if (value.includes("node")) {
-    return "node";
-  }
-
-  if (value.includes("html") || value.includes("css")) {
-    return "html";
-  }
-
-  if (value.includes("next")) {
-    return "nextjs";
-  }
-
-  if (value.includes("design") || value.includes("ui") || value.includes("ux")) {
-    return "design";
-  }
-
-  if (value.includes("git") || value.includes("github")) {
-    return "git";
-  }
-
-  return "default";
-}
-
-function formatLevel(level: ExploreCourse["level"]) {
-  switch (level) {
-    case "beginner":
-      return "Beginner";
-
-    case "intermediate":
-      return "Intermediate";
-
-    case "advanced":
-      return "Advanced";
-
-    case "all_levels":
-      return "All Levels";
-
-    default:
-      return "All Levels";
-  }
-}
 
 function getLevelClasses(level: ExploreCourse["level"]) {
   switch (level) {
@@ -225,14 +88,6 @@ function getLevelClasses(level: ExploreCourse["level"]) {
   }
 }
 
-function isImageUrl(value: string | null) {
-  if (!value) {
-    return false;
-  }
-
-  return value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:image/");
-}
-
 function formatPrice(price: number) {
   if (price === 0) {
     return "Free";
@@ -246,10 +101,7 @@ function formatPrice(price: number) {
 /* -------------------------------------------------------------------------- */
 
 export function ExploreCourseCard({ course }: ExploreCourseCardProps) {
-  const thumbnailKey = getThumbnailKey(course.title);
-  const gradient = thumbnailStyles[thumbnailKey] ?? thumbnailStyles.default;
-  const fallbackContent = thumbnailText[thumbnailKey] ?? thumbnailText.default;
-  const hasImage = isImageUrl(course.thumbnail);
+  const thumbnailKey = getCourseArtKey(course.title);
   const creatorName = course.instructor?.trim() || "Course Creator";
   const categoryName = course.categoryName?.trim() || "Uncategorized";
   const language = course.courseLanguage?.trim() || "Not specified";
@@ -268,35 +120,13 @@ export function ExploreCourseCard({ course }: ExploreCourseCardProps) {
         {/* Thumbnail                                                         */}
         {/* ---------------------------------------------------------------- */}
 
-        <div className={`relative h-[170px] overflow-hidden bg-gradient-to-br ${gradient}`}>
-          {/* ============================================================ */}
-          {/* Real Thumbnail                                                */}
-          {/* ============================================================ */}
-
-          {hasImage ? (
-            <img
-              src={course.thumbnail!}
-              alt={`${course.title} thumbnail`}
-              className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              loading="lazy"
-              onError={(event) => {
-                event.currentTarget.style.display = "none";
-              }}
-            />
-          ) : (
-            <>
-              {/* Decorative circles */}
-
-              <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full border border-white/10" />
-
-              <div className="absolute -bottom-12 left-8 h-28 w-28 rounded-full border border-white/10" />
-
-              {/* Fallback */}
-
-              <div className="relative flex h-full items-center justify-center">{fallbackContent}</div>
-            </>
-          )}
-
+        <CourseThumbnail
+          artKey={thumbnailKey}
+          title={course.title}
+          imageUrl={course.thumbnail}
+          zoomOnHover
+          className="h-[170px]"
+        >
           {/* Dark overlay */}
 
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
@@ -337,7 +167,7 @@ export function ExploreCourseCard({ course }: ExploreCourseCardProps) {
             View Course
             <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
           </div>
-        </div>
+        </CourseThumbnail>
 
         {/* ---------------------------------------------------------------- */}
         {/* Content                                                           */}
@@ -362,13 +192,7 @@ export function ExploreCourseCard({ course }: ExploreCourseCardProps) {
 
           <div className="mt-4 flex items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600">
-              {creatorName
-                .split(/\s+/)
-                .filter(Boolean)
-                .map((name) => name.charAt(0))
-                .join("")
-                .slice(0, 2)
-                .toUpperCase()}
+              {getInitials(creatorName)}
             </div>
 
             <div className="min-w-0">
@@ -407,7 +231,7 @@ export function ExploreCourseCard({ course }: ExploreCourseCardProps) {
           <div className="mt-3 flex items-center justify-between gap-2">
             {/* Level */}
 
-            <span className={`rounded-lg px-2.5 py-1.5 text-[9px] font-semibold ${getLevelClasses(course.level)}`}>{formatLevel(course.level)}</span>
+            <span className={`rounded-lg px-2.5 py-1.5 text-[9px] font-semibold ${getLevelClasses(course.level)}`}>{formatCourseLevel(course.level)}</span>
 
             {/* Price */}
 

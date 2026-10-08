@@ -5,7 +5,6 @@ import {
   Bell,
   BookOpen,
   Check,
-  ChevronDown,
   CircleHelp,
   ClipboardList,
   CreditCard,
@@ -24,6 +23,7 @@ import {
 import { useState } from "react";
 
 import { adminData } from "../../data/adminData";
+import { SelectField } from "./SettingsPrimitives";
 
 const featureIcons = {
   UserPlus,
@@ -371,40 +371,6 @@ export function GeneralSettings() {
           Changes to platform features may affect existing courses and users.
         </div>
       </section>
-    </div>
-  );
-}
-
-interface SelectFieldProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}
-
-function SelectField({ label, value, onChange, options }: SelectFieldProps) {
-  return (
-    <div>
-      <label className="mb-2 block text-xs font-semibold text-slate-700">
-        {label}
-      </label>
-
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
-        >
-          {options.map((option) => (
-            <option key={option}>{option}</option>
-          ))}
-        </select>
-
-        <ChevronDown
-          size={15}
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-        />
-      </div>
     </div>
   );
 }

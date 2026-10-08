@@ -7,16 +7,12 @@ import {
   useState,
 } from "react";
 
-import type {
-  ChangeEvent,
-  ReactNode,
-} from "react";
+import type { ChangeEvent } from "react";
 
 import {
   BarChart3,
   Check,
   CheckCircle2,
-  ChevronDown,
   CircleHelp,
   Folder,
   Globe,
@@ -41,6 +37,13 @@ import PricingAccess from "../../../components/courses/pricing/PricingAccess";
 import ReviewPublish from "../../../components/courses/review/ReviewPublish";
 
 import { api } from "~/lib/axios";
+import {
+  COURSE_LEVEL_OPTIONS,
+  formatCourseLevel,
+  getCourseLevelValue,
+  type CourseLevel,
+} from "~/lib/course";
+import { CourseFormSelect as SelectField } from "~/components/forms/CourseFormSelect";
 
 // =========================================================
 // TYPES
@@ -57,12 +60,6 @@ type CourseStatus =
   | "published"
   | "private"
   | "archived";
-
-type CourseLevel =
-  | "beginner"
-  | "intermediate"
-  | "advanced"
-  | "all_levels";
 
 type Category = {
   id: string;
@@ -186,15 +183,6 @@ const tips = [
 
 const defaultOutcomes = [""];
 
-const levelMap = {
-  Beginner: "beginner",
-  Intermediate: "intermediate",
-  Advanced: "advanced",
-  "All Levels": "all_levels",
-} as const;
-
-type UiLevel = keyof typeof levelMap;
-
 const MAX_THUMBNAIL_SIZE =
   5 * 1024 * 1024;
 
@@ -212,16 +200,7 @@ const ALLOWED_THUMBNAIL_TYPES = [
 function getUiLevel(
   level: CourseLevel | null,
 ) {
-  if (!level) return "";
-
-  const map: Record<CourseLevel, string> = {
-    beginner: "Beginner",
-    intermediate: "Intermediate",
-    advanced: "Advanced",
-    all_levels: "All Levels",
-  };
-
-  return map[level];
+  return formatCourseLevel(level, "");
 }
 
 function getCategoryName(
@@ -234,64 +213,6 @@ function getCategoryName(
     categories.find(
       (item) => item.id === categoryId,
     )?.name ?? ""
-  );
-}
-
-// =========================================================
-// SELECT FIELD
-// =========================================================
-
-function SelectField({
-  value,
-  onChange,
-  options,
-  icon,
-  placeholder = "Select an option",
-  error = false,
-  disabled = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-  icon: ReactNode;
-  placeholder?: string;
-  error?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="relative">
-      <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-        {icon}
-      </div>
-
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        className={`h-11 w-full appearance-none rounded-xl bg-white pl-11 pr-10 text-sm text-slate-900 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 ${
-          error
-            ? "border border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100"
-            : "border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-        }`}
-      >
-        <option value="">
-          {placeholder}
-        </option>
-
-        {options.map((option) => (
-          <option
-            key={option}
-            value={option}
-          >
-            {option}
-          </option>
-        ))}
-      </select>
-
-      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-    </div>
   );
 }
 
@@ -956,10 +877,7 @@ export default function EditCourseRoute() {
       dirtyFields.has("level") &&
       level
     ) {
-      payload.level =
-        levelMap[
-          level as UiLevel
-        ];
+      payload.level = getCourseLevelValue(level);
     }
 
     if (
@@ -2068,12 +1986,7 @@ export default function EditCourseRoute() {
                         disabled={
                           isArchived
                         }
-                        options={[
-                          "Beginner",
-                          "Intermediate",
-                          "Advanced",
-                          "All Levels",
-                        ]}
+                        options={COURSE_LEVEL_OPTIONS}
                       />
 
                       {showLevelError && (

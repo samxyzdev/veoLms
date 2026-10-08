@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Link, useOutletContext } from "react-router";
+import { getInitials } from "~/lib/format";
 
 type RecentEnrollment = {
   id: string;
@@ -35,17 +36,6 @@ type CourseCreatorContext = {
   user: unknown;
   stats: CourseCreatorStats;
 };
-
-function getInitials(name: string) {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "U"
-  );
-}
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("en-IN", {

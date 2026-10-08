@@ -1,4 +1,6 @@
 import { ArrowRight, Clock3, MoreVertical, PlayCircle } from "lucide-react";
+import { CourseThumbnail, getCourseArtKey } from "../CourseThumbnail";
+import { getInitials } from "~/lib/format";
 
 export interface LearningCourse {
   id: number;
@@ -20,113 +22,23 @@ interface LearningCourseCardProps {
   course: LearningCourse;
 }
 
-const thumbnailConfig: Record<
-  string,
-  {
-    gradient: string;
-    content: React.ReactNode;
-  }
-> = {
-  react: {
-    gradient: "from-[#101b45] via-[#10236b] to-[#09b9df]",
-
-    content: <span className="text-5xl leading-none text-cyan-300">⚛</span>,
-  },
-
-  node: {
-    gradient: "from-[#092d1e] via-[#075229] to-[#43a848]",
-
-    content: (
-      <span className="text-2xl font-extrabold tracking-wide text-white">
-        node
-        <span className="ml-1 text-sm text-green-300">JS</span>
-      </span>
-    ),
-  },
-
-  html: {
-    gradient: "from-[#ff6817] via-[#ef443d] to-[#1687ec]",
-
-    content: (
-      <div className="flex items-center gap-3 text-white">
-        <span className="rounded-lg bg-white/15 px-3 py-2 text-2xl font-black backdrop-blur">
-          5
-        </span>
-
-        <span className="rounded-lg bg-white/15 px-3 py-2 text-2xl font-black backdrop-blur">
-          3
-        </span>
-      </div>
-    ),
-  },
-
-  typescript: {
-    gradient: "from-[#1765ce] via-[#0875cf] to-[#39b9ed]",
-
-    content: (
-      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-[#1474d1] shadow-inner">
-        <span className="text-3xl font-extrabold text-white">TS</span>
-      </div>
-    ),
-  },
-
-  nextjs: {
-    gradient: "from-[#101116] via-[#1a1b20] to-[#08090c]",
-
-    content: (
-      <span className="text-3xl font-light tracking-[0.15em] text-white">
-        NEXT
-        <span className="text-sm tracking-normal">.js</span>
-      </span>
-    ),
-  },
-
-  design: {
-    gradient: "from-[#eb4cb4] via-[#9a55e8] to-[#ff8f3c]",
-
-    content: (
-      <div className="relative h-16 w-16">
-        <span className="absolute left-0 top-1 h-7 w-7 rounded-full bg-[#f24f1d]" />
-        <span className="absolute right-0 top-1 h-7 w-7 rounded-full bg-[#ff526f]" />
-        <span className="absolute left-0 bottom-1 h-7 w-7 rounded-full bg-[#12a6f4]" />
-        <span className="absolute right-0 bottom-1 h-7 w-7 rounded-full bg-[#27d893]" />
-        <span className="absolute left-5 top-5 h-7 w-7 rounded-full bg-[#7950df]" />
-      </div>
-    ),
-  },
-};
-
 export function LearningCourseCard({ course }: LearningCourseCardProps) {
-  const thumbnail = thumbnailConfig[course.thumbnail] ?? thumbnailConfig.react;
-
   const isCompleted = course.status === "completed";
 
   const isNotStarted = course.status === "not-started";
 
-  const initials = course.instructor
-    .split(" ")
-    .map((name) => name.charAt(0))
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const thumbnailKey = getCourseArtKey(`${course.thumbnail} ${course.title}`);
+  const initials = getInitials(course.instructor);
 
   return (
     <article className="group rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm transition duration-200 hover:border-indigo-100 hover:shadow-md sm:p-3">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
         {/* Thumbnail */}
-        <div
-          className={`relative h-[120px] w-full shrink-0 overflow-hidden rounded-xl bg-gradient-to-br sm:h-[86px] sm:w-[195px] ${thumbnail.gradient}`}
+        <CourseThumbnail
+          artKey={thumbnailKey}
+          title={course.title}
+          className="h-[120px] w-full shrink-0 rounded-xl sm:h-[86px] sm:w-[195px]"
         >
-          {/* Decorative circles */}
-          <div className="absolute -right-8 -top-12 h-28 w-28 rounded-full border border-white/10" />
-
-          <div className="absolute -bottom-14 left-8 h-28 w-28 rounded-full border border-white/10" />
-
-          {/* Center */}
-          <div className="relative flex h-full items-center justify-center">
-            {thumbnail.content}
-          </div>
-
           {/* Status */}
           <span
             className={`
@@ -147,7 +59,7 @@ export function LearningCourseCard({ course }: LearningCourseCardProps) {
                 ? "Not Started"
                 : "In Progress"}
           </span>
-        </div>
+        </CourseThumbnail>
 
         {/* Course information */}
         <div className="min-w-0 flex-1">
