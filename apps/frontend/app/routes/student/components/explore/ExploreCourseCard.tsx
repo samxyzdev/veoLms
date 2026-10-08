@@ -120,13 +120,7 @@ export function ExploreCourseCard({ course }: ExploreCourseCardProps) {
         {/* Thumbnail                                                         */}
         {/* ---------------------------------------------------------------- */}
 
-        <CourseThumbnail
-          artKey={thumbnailKey}
-          title={course.title}
-          imageUrl={course.thumbnail}
-          zoomOnHover
-          className="h-[170px]"
-        >
+        <CourseThumbnail artKey={thumbnailKey} title={course.title} imageUrl={course.thumbnail} zoomOnHover className="h-[170px]">
           {/* Dark overlay */}
 
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
@@ -191,9 +185,7 @@ export function ExploreCourseCard({ course }: ExploreCourseCardProps) {
           {/* ============================================================ */}
 
           <div className="mt-4 flex items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600">
-              {getInitials(creatorName)}
-            </div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600">{getInitials(creatorName)}</div>
 
             <div className="min-w-0">
               <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">Instructor</p>

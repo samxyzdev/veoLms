@@ -3,13 +3,11 @@ import type { Route } from "../+types/route";
 
 import { Categories } from "../components/explore/Categories";
 import { CourseFilters } from "../components/explore/CourseFilters";
-
-import { ExploreCourseCard, type ExploreCourse } from "../components/explore/ExploreCourseCard";
-
 import { ExploreHeader } from "../components/explore/ExploreHeader";
-import { formatCourseLevel, type CourseLevel } from "~/lib/course";
 
+import { CourseCard } from "~/components/course-card";
 import { api } from "~/lib/axios";
+import { formatCourseLevel, type CourseLevel } from "~/lib/course";
 
 /* -------------------------------------------------------------------------- */
 /* Backend response type                                                      */
@@ -20,17 +18,76 @@ type StudentCourseResponse = {
   title: string | null;
   description: string | null;
   price: number | null;
+
   createdBy: string;
+
   categoryId: string | null;
   categoryName: string | null;
+
   courseLanguage: string | null;
-  level: CourseLevel;
+  level: CourseLevel | null;
+
   thumbnailUrl: string | null;
+
   status: "published" | "draft" | "private" | "archived";
+
   publishedAt: string | null;
   archivedAt: string | null;
+
   createdAt: string;
   updatedAt: string;
+
+  // Creator
+  creatorName: string;
+
+  // Course statistics
+  studentsCount: number;
+  reviewCount: number;
+  rating: number | null;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Frontend course type                                                       */
+/* -------------------------------------------------------------------------- */
+
+type ExploreCourse = {
+  id: string;
+
+  title: string;
+  description: string;
+
+  price: number | null;
+
+  createdBy: string;
+
+  categoryId: string | null;
+  categoryName: string | null;
+
+  courseLanguage: string | null;
+  level: CourseLevel | null;
+
+  thumbnail: string | null;
+
+  instructorName: string;
+  instructorAvatar: string | null;
+
+  rating: number | null;
+  reviewCount: number;
+  studentsCount: number;
+
+  isPublished: boolean;
+  isWishlisted: boolean;
+
+  status: "published" | "draft" | "private" | "archived";
+
+  publishedAt: string | null;
+  archivedAt: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+
+  // Currently not available from backend
+  duration: string;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -38,42 +95,96 @@ type StudentCourseResponse = {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Public route
- * No authentication check is required here.
+ * Public route.
+ *
+ * No authentication is required.
  */
 export async function clientLoader() {
   const response = await api.get("/student/courses");
 
   const backendCourses = (response.data?.data ?? []) as StudentCourseResponse[];
 
-  const courses: ExploreCourse[] = backendCourses.map((course) => {
-    return {
-      id: course.id,
-      title: course.title ?? "Untitled Course",
-      description: course.description ?? "",
-      price: course.price ?? 0,
-      createdBy: course.createdBy,
-      categoryId: course.categoryId,
-      categoryName: course.categoryName,
-      courseLanguage: course.courseLanguage,
-      level: course.level,
-      thumbnail: course.thumbnailUrl,
-      badge: null,
-      instructor: "You",
-      category: course.categoryId ?? "Uncategorized",
-      duration: "0h",
-      rating: 0,
-      students: "0",
-      status: course.status,
-      publishedAt: course.publishedAt,
-      archivedAt: course.archivedAt,
-      createdAt: course.createdAt,
-      updatedAt: course.updatedAt,
-    };
-  });
+  const courses: ExploreCourse[] = backendCourses.map((course) => ({
+    /* ------------------------------------------------------------------ */
+    /* Basic course information                                           */
+    /* ------------------------------------------------------------------ */
+
+    id: course.id,
+
+    title: course.title ?? "Untitled Course",
+
+    description: course.description ?? "",
+
+    price: course.price,
+
+    /* ------------------------------------------------------------------ */
+    /* Creator                                                             */
+    /* ------------------------------------------------------------------ */
+
+    createdBy: course.createdBy,
+
+    instructorName: course.creatorName,
+
+    // Avatar is not coming from backend yet
+    instructorAvatar: null,
+
+    /* ------------------------------------------------------------------ */
+    /* Category / metadata                                                 */
+    /* ------------------------------------------------------------------ */
+
+    categoryId: course.categoryId,
+
+    categoryName: course.categoryName,
+
+    courseLanguage: course.courseLanguage,
+
+    level: course.level,
+
+    /* ------------------------------------------------------------------ */
+    /* Thumbnail                                                           */
+    /* ------------------------------------------------------------------ */
+
+    thumbnail: course.thumbnailUrl,
+
+    /* ------------------------------------------------------------------ */
+    /* Course statistics                                                   */
+    /* ------------------------------------------------------------------ */
+
+    rating: course.rating,
+
+    reviewCount: course.reviewCount,
+
+    studentsCount: course.studentsCount,
+
+    /* ------------------------------------------------------------------ */
+    /* Card state                                                          */
+    /* ------------------------------------------------------------------ */
+
+    isPublished: course.status === "published",
+
+    // Wishlist endpoint is not connected yet
+    isWishlisted: false,
+
+    /* ------------------------------------------------------------------ */
+    /* Other course information                                            */
+    /* ------------------------------------------------------------------ */
+
+    duration: "0h",
+
+    status: course.status,
+
+    publishedAt: course.publishedAt,
+
+    archivedAt: course.archivedAt,
+
+    createdAt: course.createdAt,
+
+    updatedAt: course.updatedAt,
+  }));
 
   return courses;
 }
+
 /* -------------------------------------------------------------------------- */
 /* Page                                                                       */
 /* -------------------------------------------------------------------------- */
@@ -116,13 +227,13 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
 
     if (searchValue) {
       result = result.filter((course) => {
-        const title = course.title?.toLowerCase() ?? "";
+        const title = course.title.toLowerCase();
 
-        const description = course.description?.toLowerCase() ?? "";
+        const description = course.description.toLowerCase();
 
-        const instructor = course.instructor?.toLowerCase() ?? "";
+        const instructor = course.instructorName.toLowerCase();
 
-        const category = course.category?.toLowerCase() ?? "";
+        const category = course.categoryName?.toLowerCase() ?? "";
 
         const language = course.courseLanguage?.toLowerCase() ?? "";
 
@@ -136,7 +247,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
 
     if (level !== "All Levels") {
       result = result.filter((course) => {
-        const courseLevel = formatCourseLevel(course.level);
+        const courseLevel = course.level ? formatCourseLevel(course.level) : "";
 
         return courseLevel === level;
       });
@@ -148,7 +259,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
 
     if (duration !== "Any Duration") {
       result = result.filter((course) => {
-        const hours = parseDurationToHours(course.duration ?? "0h");
+        const hours = parseDurationToHours(course.duration);
 
         if (duration === "0 - 5 Hours") {
           return hours <= 5;
@@ -186,7 +297,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
         break;
 
       case "students":
-        result.sort((a, b) => parseStudentCount(b.students ?? "0") - parseStudentCount(a.students ?? "0"));
+        result.sort((a, b) => b.studentsCount - a.studentsCount);
         break;
 
       case "newest":
@@ -195,7 +306,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
 
       case "popular":
       default:
-        /**
+        /*
          * Keep backend order.
          */
         break;
@@ -227,7 +338,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
       {/* Header + Hero                                                      */}
       {/* ------------------------------------------------------------------ */}
 
-      <ExploreHeader />
+      {/* <ExploreHeader /> */}
 
       {/* ------------------------------------------------------------------ */}
       {/* Categories                                                         */}
@@ -269,7 +380,27 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
       {filteredCourses.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {filteredCourses.map((course) => (
-            <ExploreCourseCard key={course.id} course={course} />
+            <CourseCard
+              key={course.id}
+              variant="explore"
+              id={course.id}
+              title={course.title}
+              description={course.description}
+              thumbnail={course.thumbnail ?? ""}
+              instructorName={course.instructorName}
+              instructorAvatar={course.instructorAvatar}
+              category={course.categoryName}
+              language={course.courseLanguage}
+              level={course.level ? formatCourseLevel(course.level) : null}
+              price={course.price}
+              isFree={course.price == null || course.price === 0}
+              rating={course.rating}
+              reviewCount={course.reviewCount}
+              studentsCount={course.studentsCount}
+              isPublished={course.isPublished}
+              isWishlisted={course.isWishlisted}
+              href={`/student/explore-courses/${course.id}`}
+            />
           ))}
         </div>
       ) : (
@@ -294,7 +425,7 @@ export default function ExploreCoursesPage({ loaderData }: Route.ComponentProps)
 /* -------------------------------------------------------------------------- */
 
 /**
- * Converts values such as:
+ * Converts:
  *
  * "2h 30m" -> 2.5
  * "5h"     -> 5
@@ -310,31 +441,4 @@ function parseDurationToHours(duration: string): number {
   const minutes = minutesMatch ? Number(minutesMatch[1]) : 0;
 
   return hours + minutes / 60;
-}
-
-/**
- * Converts:
- *
- * "1.5k" -> 1500
- * "10k"  -> 10000
- * "500"  -> 500
- */
-function parseStudentCount(value: string): number {
-  const normalized = value.trim().toLowerCase();
-
-  const number = parseFloat(normalized);
-
-  if (Number.isNaN(number)) {
-    return 0;
-  }
-
-  if (normalized.includes("k")) {
-    return number * 1_000;
-  }
-
-  if (normalized.includes("m")) {
-    return number * 1_000_000;
-  }
-
-  return number;
 }

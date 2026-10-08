@@ -111,6 +111,7 @@ function courseStatus(progress: number): {
  * - study trend
  * - recent courses
  */
+
 export const getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId;
 
@@ -130,46 +131,54 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
     const weekStartKey = toDateKey(weekStart);
 
     const [activityRows, enrolledCourses, goalRows, completedCourses, completedLessons] = await Promise.all([
-      /* -------------------------------------------------------------------- */
-      /* Study activity                                                        */
-      /* -------------------------------------------------------------------- */
+      /* --------------------------------------------------------------------
+       * Study activity
+       * -------------------------------------------------------------------- */
 
       db
         .select({
           activityDate: userActivityTable.activityDate,
-
           minutesStudied: userActivityTable.minutesStudied,
         })
         .from(userActivityTable)
         .where(eq(userActivityTable.userId, userId)),
 
-      /* -------------------------------------------------------------------- */
-      /* Enrolled courses                                                      */
-      /* -------------------------------------------------------------------- */
+      /* --------------------------------------------------------------------
+       * Enrolled courses
+       * -------------------------------------------------------------------- */
 
       db
         .select({
           courseId: coursesTable.id,
-
           title: coursesTable.title,
-
           categoryName: categoriesTable.name,
-
           purchasedAt: coursePurchaseTable.createdAt,
 
+          // Full course progress
           progress: courseProgressTable.progressPercentage,
 
+          // Last watched content
+          lastContentId: courseProgressTable.lastContentId,
+          lastContentTitle: courseContentsTable.title,
+
+          // Last access time
           lastAccessedAt: courseProgressTable.lastAccessedAt,
         })
         .from(coursePurchaseTable)
+
         .innerJoin(coursesTable, eq(coursePurchaseTable.courseId, coursesTable.id))
+
         .leftJoin(categoriesTable, eq(coursesTable.categoryId, categoriesTable.id))
+
         .leftJoin(courseProgressTable, and(eq(courseProgressTable.courseId, coursesTable.id), eq(courseProgressTable.userId, userId)))
+
+        .leftJoin(courseContentsTable, eq(courseProgressTable.lastContentId, courseContentsTable.id))
+
         .where(eq(coursePurchaseTable.userId, userId)),
 
-      /* -------------------------------------------------------------------- */
-      /* Weekly goal                                                           */
-      /* -------------------------------------------------------------------- */
+      /* --------------------------------------------------------------------
+       * Weekly goal
+       * -------------------------------------------------------------------- */
 
       db
         .select({
@@ -179,9 +188,9 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
         .where(and(eq(userGoalsTable.userId, userId), eq(userGoalsTable.weekStart, weekStartKey)))
         .limit(1),
 
-      /* -------------------------------------------------------------------- */
-      /* Completed courses                                                     */
-      /* -------------------------------------------------------------------- */
+      /* --------------------------------------------------------------------
+       * Completed courses
+       * -------------------------------------------------------------------- */
 
       db
         .select({
@@ -190,9 +199,9 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
         .from(courseProgressTable)
         .where(and(eq(courseProgressTable.userId, userId), eq(courseProgressTable.progressPercentage, 100))),
 
-      /* -------------------------------------------------------------------- */
-      /* Completed lessons                                                     */
-      /* -------------------------------------------------------------------- */
+      /* --------------------------------------------------------------------
+       * Completed lessons
+       * -------------------------------------------------------------------- */
 
       db
         .select({
@@ -202,9 +211,9 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
         .where(and(eq(contentProgressTable.userId, userId), eq(contentProgressTable.isCompleted, true))),
     ]);
 
-    /* ---------------------------------------------------------------------- */
-    /* Activity calculations                                                  */
-    /* ---------------------------------------------------------------------- */
+    /* ----------------------------------------------------------------------
+     * Activity calculations
+     * ---------------------------------------------------------------------- */
 
     const minutesByDate = totalMinutesByDate(activityRows);
 
@@ -216,9 +225,9 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
 
     const targetMinutes = goalRows[0]?.targetMinutes ?? DEFAULT_WEEKLY_GOAL_MINUTES;
 
-    /* ---------------------------------------------------------------------- */
-    /* Study trend - last 6 weeks                                             */
-    /* ---------------------------------------------------------------------- */
+    /* ----------------------------------------------------------------------
+     * Study trend - last 6 weeks
+     * ---------------------------------------------------------------------- */
 
     const studyTrend = Array.from({ length: 6 }, (_, index) => {
       const start = addDays(weekStart, -7 * (5 - index));
@@ -232,17 +241,17 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
       return toHours(minutes);
     });
 
-    /* ---------------------------------------------------------------------- */
-    /* Overall progress                                                       */
-    /* ---------------------------------------------------------------------- */
+    /* ----------------------------------------------------------------------
+     * Overall progress
+     * ---------------------------------------------------------------------- */
 
     const progressValues = enrolledCourses.map((course) => course.progress).filter((progress): progress is number => progress !== null);
 
     const overallProgress = progressValues.length > 0 ? Math.round(progressValues.reduce((total, value) => total + value, 0) / progressValues.length) : 0;
 
-    /* ---------------------------------------------------------------------- */
-    /* Recent courses                                                         */
-    /* ---------------------------------------------------------------------- */
+    /* ----------------------------------------------------------------------
+     * Recent courses
+     * ---------------------------------------------------------------------- */
 
     const recentCourses = [...enrolledCourses]
       .sort((a, b) => (b.lastAccessedAt ?? b.purchasedAt).getTime() - (a.lastAccessedAt ?? a.purchasedAt).getTime())
@@ -259,17 +268,77 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
         };
       });
 
-    /* ---------------------------------------------------------------------- */
-    /* Final response                                                         */
-    /* ---------------------------------------------------------------------- */
+    /* ----------------------------------------------------------------------
+     * Recent activity
+     *
+     * Only shows the last watched lesson/content for each course.
+     * No separate endpoint required.
+     * ---------------------------------------------------------------------- */
+
+    const formatRelativeTime = (date: Date) => {
+      const now = new Date();
+
+      const diffMs = Math.max(0, now.getTime() - date.getTime());
+
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffMinutes < 1) {
+        return "Just now";
+      }
+
+      if (diffMinutes < 60) {
+        return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+      }
+
+      if (diffHours < 24) {
+        return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+      }
+
+      if (diffDays === 1) {
+        return "Yesterday";
+      }
+
+      if (diffDays < 7) {
+        return `${diffDays} days ago`;
+      }
+
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    };
+
+    const recentActivity = [...enrolledCourses]
+      .filter((course) => course.lastContentId !== null && course.lastContentTitle !== null && course.lastAccessedAt !== null)
+      .sort((a, b) => b.lastAccessedAt!.getTime() - a.lastAccessedAt!.getTime())
+      .slice(0, 5)
+      .map((course) => ({
+        id: `${course.courseId}-${course.lastContentId}`,
+
+        courseId: course.courseId,
+        courseTitle: course.title,
+
+        lessonId: course.lastContentId!,
+        lessonTitle: course.lastContentTitle!,
+
+        time: formatRelativeTime(course.lastAccessedAt!),
+      }));
+
+    /* ----------------------------------------------------------------------
+     * Final response
+     * ---------------------------------------------------------------------- */
 
     return res.status(200).json({
       success: true,
 
       data: {
-        /* ------------------------------------------------------------------ */
-        /* Weekly goal                                                        */
-        /* ------------------------------------------------------------------ */
+        /* ------------------------------------------------------------------
+         * Weekly goal
+         * ------------------------------------------------------------------ */
 
         weeklyGoal: {
           hoursDone: toHours(weekMinutes),
@@ -285,9 +354,9 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
           dateRange: formatWeekRange(weekStart, weekEnd),
         },
 
-        /* ------------------------------------------------------------------ */
-        /* Courses                                                            */
-        /* ------------------------------------------------------------------ */
+        /* ------------------------------------------------------------------
+         * Courses
+         * ------------------------------------------------------------------ */
 
         courses: {
           enrolled: enrolledCourses.length,
@@ -303,17 +372,17 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
           addedThisMonth: enrolledCourses.filter((course) => course.purchasedAt.getMonth() === today.getMonth() && course.purchasedAt.getFullYear() === today.getFullYear()).length,
         },
 
-        /* ------------------------------------------------------------------ */
-        /* Lessons                                                             */
-        /* ------------------------------------------------------------------ */
+        /* ------------------------------------------------------------------
+         * Lessons
+         * ------------------------------------------------------------------ */
 
         lessons: {
           completed: completedLessons.length,
         },
 
-        /* ------------------------------------------------------------------ */
-        /* Study                                                               */
-        /* ------------------------------------------------------------------ */
+        /* ------------------------------------------------------------------
+         * Study
+         * ------------------------------------------------------------------ */
 
         study: {
           hours: toHours(weekMinutes),
@@ -325,9 +394,9 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
           highlightIndex: weekdayIndex(today),
         },
 
-        /* ------------------------------------------------------------------ */
-        /* Streak                                                              */
-        /* ------------------------------------------------------------------ */
+        /* ------------------------------------------------------------------
+         * Streak
+         * ------------------------------------------------------------------ */
 
         streak: {
           days: currentStreak(activeDates, today),
@@ -337,19 +406,29 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
           todayIndex: weekdayIndex(today),
         },
 
-        /* ------------------------------------------------------------------ */
-        /* Overall progress                                                   */
-        /* ------------------------------------------------------------------ */
+        /* ------------------------------------------------------------------
+         * Overall progress
+         * ------------------------------------------------------------------ */
 
         overallProgress,
 
-        /* ------------------------------------------------------------------ */
-        /* Charts / recent courses                                            */
-        /* ------------------------------------------------------------------ */
+        /* ------------------------------------------------------------------
+         * Charts
+         * ------------------------------------------------------------------ */
 
         studyTrend,
 
+        /* ------------------------------------------------------------------
+         * Recent courses
+         * ------------------------------------------------------------------ */
+
         recentCourses,
+
+        /* ------------------------------------------------------------------
+         * Recent activity
+         * ------------------------------------------------------------------ */
+
+        recentActivity,
       },
     });
   } catch (error) {

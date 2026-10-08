@@ -17,7 +17,6 @@ import type { Route } from "../+types/route";
 export async function clientLoader() {
   try {
     const [statsResponse, courseProgressResponse] = await Promise.all([api.get("/student/dashboard/stats"), api.get("/student/dashboard/course-progress")]);
-
     return {
       stats: statsResponse.data.data,
       courseProgress: courseProgressResponse.data.data,
@@ -26,38 +25,29 @@ export async function clientLoader() {
     if (isAxiosError(error) && error.response?.status === 401) {
       throw redirect("/signin");
     }
-
     throw error;
   }
 }
 
 export default function DashboardHome({ loaderData }: Route.ComponentProps) {
   console.log("loaderData:", loaderData);
-
   return (
     <div className="space-y-5">
       <DashboardHeader />
-
       <StatCards stats={loaderData.stats} />
-
       <div className="grid gap-5 xl:grid-cols-[1.7fr_1fr]">
         {/* <ContinueLearning /> */}
         {/* <UpcomingDeadlines /> */}
       </div>
-
       <div className="grid gap-5 xl:grid-cols-[1.7fr_1fr]">
         <CourseProgress courses={loaderData.courseProgress} />
-
-        <RecentActivity />
+        <RecentActivity activities={loaderData.stats.recentActivity} />
       </div>
-
       {/* <RecommendedCourses /> */}
-
       <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
         {/* <CourseEnrollment /> */}
         {/* <WeeklyGoal /> */}
       </div>
-
       {/* <StatsSection /> */}
     </div>
   );

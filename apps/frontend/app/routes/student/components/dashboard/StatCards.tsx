@@ -1,16 +1,27 @@
-import {
-  BookOpen,
-  CircleCheck,
-  Flame,
-  PlayCircle,
-  TrendingUp,
-} from "lucide-react";
+import { BookOpen, CircleCheck, Flame, PlayCircle, TrendingUp } from "lucide-react";
 
 type DashboardStats = {
-  enrolledCourses: number;
-  completedCourses: number;
-  lessonsCompleted: number;
-  learningStreak: number;
+  courses: {
+    enrolled: number;
+    completed: number;
+    active: number;
+    addedThisMonth: number;
+  };
+  lessons: {
+    completed: number;
+  };
+  study: {
+    hours: number;
+    avgPerDay: string;
+    dailyMinutes: number[];
+    highlightIndex: number;
+  };
+  streak: {
+    days: number;
+    personalBest: number;
+    todayIndex: number;
+  };
+  overallProgress: number;
 };
 
 type StatCardsProps = {
@@ -22,21 +33,21 @@ const iconMap = {
   CircleCheck,
   PlayCircle,
   Flame,
-};
+} as const;
 
 const iconStyles = {
   purple: "bg-indigo-50 text-indigo-600",
   green: "bg-emerald-50 text-emerald-600",
   blue: "bg-blue-50 text-blue-600",
   orange: "bg-orange-50 text-orange-500",
-};
+} as const;
 
 export function StatCards({ stats }: StatCardsProps) {
   const dashboardStats = [
     {
       id: "enrolled-courses",
       title: "Enrolled Courses",
-      value: stats.enrolledCourses,
+      value: stats.courses.enrolled,
       description: "Courses you are learning",
       icon: "BookOpen",
       iconStyle: "purple",
@@ -44,7 +55,7 @@ export function StatCards({ stats }: StatCardsProps) {
     {
       id: "completed-courses",
       title: "Completed Courses",
-      value: stats.completedCourses,
+      value: stats.courses.completed,
       description: "Courses you have completed",
       icon: "CircleCheck",
       iconStyle: "green",
@@ -52,7 +63,7 @@ export function StatCards({ stats }: StatCardsProps) {
     {
       id: "lessons-completed",
       title: "Lessons Completed",
-      value: stats.lessonsCompleted,
+      value: stats.lessons.completed,
       description: "Lessons completed so far",
       icon: "PlayCircle",
       iconStyle: "blue",
@@ -60,7 +71,7 @@ export function StatCards({ stats }: StatCardsProps) {
     {
       id: "learning-streak",
       title: "Learning Streak",
-      value: `${stats.learningStreak} days`,
+      value: `${stats.streak.days} days`,
       description: "Keep your streak going",
       icon: "Flame",
       iconStyle: "orange",
@@ -74,18 +85,13 @@ export function StatCards({ stats }: StatCardsProps) {
         const iconStyle = iconStyles[stat.iconStyle];
 
         return (
-          <article
-            key={stat.id}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
-          >
+          <article key={stat.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
             <div className="flex items-start justify-between">
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconStyle}`}
-              >
+              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconStyle}`}>
                 <Icon size={18} />
               </div>
 
-              {stat.id === "learning-streak" && stats.learningStreak > 0 && (
+              {stat.id === "learning-streak" && stats.streak.days > 0 && (
                 <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
                   <TrendingUp size={10} />
                   Active
@@ -93,17 +99,11 @@ export function StatCards({ stats }: StatCardsProps) {
               )}
             </div>
 
-            <p className="mt-3 text-[11px] font-medium text-slate-500">
-              {stat.title}
-            </p>
+            <p className="mt-3 text-[11px] font-medium text-slate-500">{stat.title}</p>
 
-            <p className="mt-1 text-xl font-bold text-slate-900">
-              {stat.value}
-            </p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{stat.value}</p>
 
-            <p className="mt-0.5 text-[11px] text-slate-400">
-              {stat.description}
-            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{stat.description}</p>
           </article>
         );
       })}

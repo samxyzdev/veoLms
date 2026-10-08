@@ -1,4 +1,4 @@
-import { categoriesTable, coursesTable, db, desc, eq, usersTable } from "@repo/database";
+import { categoriesTable, coursePurchaseTable, coursesTable, db, desc, eq, reviewsTable, sql, usersTable } from "@repo/database";
 import { createPresignedDownloadUrl } from "../services/s3";
 import type { NextFunction, Request, Response } from "express";
 
@@ -28,8 +28,44 @@ export const listCourses = async (_req: Request, res: Response, next: NextFuncti
         createdAt: coursesTable.createdAt,
         updatedAt: coursesTable.updatedAt,
 
-        // Creator actual name
+        // Creator
         creatorName: usersTable.name,
+
+        // -----------------------------------------------------
+        // Total enrolled students
+        // -----------------------------------------------------
+        studentsCount: sql<number>`
+          (
+            SELECT COUNT(*)::int
+            FROM ${coursePurchaseTable}
+            WHERE ${coursePurchaseTable.courseId} = ${coursesTable.id}
+          )
+        `.as("students_count"),
+
+        // -----------------------------------------------------
+        // Total reviews
+        // -----------------------------------------------------
+        reviewCount: sql<number>`
+          (
+            SELECT COUNT(*)::int
+            FROM ${reviewsTable}
+            WHERE ${reviewsTable.courseId} = ${coursesTable.id}
+          )
+        `.as("review_count"),
+
+        // -----------------------------------------------------
+        // Average rating
+        // -----------------------------------------------------
+        rating: sql<number | null>`
+          (
+            SELECT ROUND(
+              AVG(${reviewsTable.rating})::numeric,
+              1
+            )
+            FROM ${reviewsTable}
+            WHERE ${reviewsTable.courseId} = ${coursesTable.id}
+          )
+        `.as("rating"),
       })
       .from(coursesTable)
 
@@ -39,6 +75,7 @@ export const listCourses = async (_req: Request, res: Response, next: NextFuncti
       // Category
       .leftJoin(categoriesTable, eq(coursesTable.categoryId, categoriesTable.id))
 
+      // Only published courses
       .where(eq(coursesTable.status, "published"))
 
       .orderBy(desc(coursesTable.createdAt))
@@ -51,18 +88,27 @@ export const listCourses = async (_req: Request, res: Response, next: NextFuncti
 
     const coursesWithThumbnailUrls = await Promise.all(
       courses.map(async (course) => {
-        if (!course.thumbnailUrl) {
-          return course;
-        }
+        let thumbnailUrl = course.thumbnailUrl;
 
-        const thumbnailUrl = await createPresignedDownloadUrl({
-          key: course.thumbnailUrl,
-          expiresIn: 900,
-        });
+        if (thumbnailUrl) {
+          thumbnailUrl = await createPresignedDownloadUrl({
+            key: thumbnailUrl,
+            expiresIn: 900,
+          });
+        }
 
         return {
           ...course,
+
           thumbnailUrl,
+
+          // PostgreSQL COUNT can be returned as string
+          studentsCount: Number(course.studentsCount),
+
+          reviewCount: Number(course.reviewCount),
+
+          // Keep null when there are no reviews
+          rating: course.rating === null ? null : Number(course.rating),
         };
       }),
     );
