@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { redirect } from "react-router";
 import { isAxiosError } from "axios";
+import { redirect } from "react-router";
 
 import type { Route } from "../+types/route";
 
@@ -12,29 +12,98 @@ import { MyLearningHeader } from "../components/my-learning/MyLearningHeader";
 
 import { api } from "~/lib/axios";
 
-/**
- * Fetch purchased/enrolled courses for the logged-in user.
- */
+/* -------------------------------------------------------------------------- */
+/* Backend response                                                           */
+/* -------------------------------------------------------------------------- */
+
+type PurchasedCourseResponse = {
+  purchaseId: string;
+  purchasedAt: string;
+
+  courseId: string;
+
+  title: string | null;
+  description: string | null;
+
+  price: number | null;
+
+  courseLanguage: string | null;
+
+  // Current endpoint may not send these yet.
+  categoryName?: string | null;
+  level?: string | null;
+  thumbnailUrl?: string | null;
+
+  instructorName?: string | null;
+
+  progress?: number | null;
+  completedLessons?: number | null;
+  totalLessons?: number | null;
+
+  duration?: string | null;
+  nextLesson?: string | null;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Loader                                                                     */
+/* -------------------------------------------------------------------------- */
+
 export async function clientLoader() {
   try {
     const response = await api.get("/student/courses/purchased-courses");
 
-    /**
-     * Supports both response formats:
+    /*
+     * Backend response:
      *
-     * 1. { courses: [...] }
-     * 2. [...]
+     * {
+     *   success: true,
+     *   data: [...]
+     * }
      */
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
 
-    return response.data.courses ?? [];
-  } catch (error) {
-    /**
-     * User is not authenticated.
-     * Send them to signin page.
+    const backendCourses = (response.data?.data ?? []) as PurchasedCourseResponse[];
+
+    /*
+     * Normalize backend data into the shape
+     * expected by LearningCourseCard.
      */
+    const courses: LearningCourse[] = backendCourses.map((course) => ({
+      id: course.courseId,
+
+      title: course.title ?? "Untitled Course",
+
+      description: course.description ?? "Course description unavailable.",
+
+      instructor: course.instructorName ?? "Instructor unavailable",
+
+      lessons: course.totalLessons ?? 0,
+
+      completedLessons: course.completedLessons ?? 0,
+
+      duration: course.duration ?? "Duration unavailable",
+
+      level: course.level ?? "Level unavailable",
+
+      category: course.categoryName ?? "Category unavailable",
+
+      progress: Math.min(100, Math.max(0, Number(course.progress) || 0)),
+
+      status: course.progress != null ? (course.progress >= 100 ? "completed" : course.progress > 0 ? "in-progress" : "not-started") : "not-started",
+
+      /*
+       * LearningCourseCard uses CourseThumbnail.
+       *
+       * The current API does not send thumbnailUrl,
+       * so keep an empty value and let CourseThumbnail
+       * fall back to generated course art.
+       */
+      thumbnail: course.thumbnailUrl ?? "",
+
+      nextLesson: course.nextLesson ?? "No lesson available yet.",
+    }));
+
+    return courses;
+  } catch (error) {
     if (isAxiosError(error) && error.response?.status === 401) {
       throw redirect("/signin");
     }
@@ -43,32 +112,36 @@ export async function clientLoader() {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Page                                                                       */
+/* -------------------------------------------------------------------------- */
+
 export default function MyLearningPage({ loaderData }: Route.ComponentProps) {
   const [activeTab, setActiveTab] = useState<LearningTab>("all");
 
   const [sortBy, setSortBy] = useState("recent");
 
-  /**
-   * Data now comes from the backend through clientLoader.
-   */
   const courses = loaderData as LearningCourse[];
 
-  /**
-   * Filter + sort courses.
-   */
+  /* ------------------------------------------------------------------------ */
+  /* Filter + Sort                                                            */
+  /* ------------------------------------------------------------------------ */
+
   const filteredCourses = useMemo(() => {
     let result = [...courses];
 
-    // -------------------------
-    // Filter by tab
-    // -------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Filter by tab                                                          */
+    /* ---------------------------------------------------------------------- */
+
     if (activeTab !== "all") {
       result = result.filter((course) => course.status === activeTab);
     }
 
-    // -------------------------
-    // Sort
-    // -------------------------
+    /* ---------------------------------------------------------------------- */
+    /* Sort                                                                    */
+    /* ---------------------------------------------------------------------- */
+
     switch (sortBy) {
       case "progress-high":
         result.sort((a, b) => b.progress - a.progress);
@@ -79,18 +152,11 @@ export default function MyLearningPage({ loaderData }: Route.ComponentProps) {
         break;
 
       case "oldest":
-        /**
-         * Assumes API already returns courses
-         * in recent-first order.
-         */
         result.reverse();
         break;
 
       case "recent":
       default:
-        /**
-         * Keep API order.
-         */
         break;
     }
 
@@ -99,27 +165,31 @@ export default function MyLearningPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="min-w-0">
-      {/* ------------------------- */}
-      {/* Page Header */}
-      {/* ------------------------- */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                              */}
+      {/* ------------------------------------------------------------------ */}
+
       <MyLearningHeader />
 
-      {/* ------------------------- */}
-      {/* Tabs + Filters */}
-      {/* ------------------------- */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Tabs                                                                */}
+      {/* ------------------------------------------------------------------ */}
+
       <LearningTabs activeTab={activeTab} sortBy={sortBy} onTabChange={setActiveTab} onSortChange={setSortBy} />
 
-      {/* ------------------------- */}
-      {/* Courses */}
-      {/* ------------------------- */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Courses                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
       <div className="space-y-2.5">
         {filteredCourses.map((course) => (
           <LearningCourseCard key={course.id} course={course} />
         ))}
 
-        {/* ------------------------- */}
-        {/* Empty State */}
-        {/* ------------------------- */}
+        {/* ---------------------------------------------------------------- */}
+        {/* Empty state                                                       */}
+        {/* ---------------------------------------------------------------- */}
+
         {filteredCourses.length === 0 && (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-xl">📚</div>

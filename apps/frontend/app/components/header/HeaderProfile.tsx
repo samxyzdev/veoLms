@@ -1,6 +1,6 @@
 import { ChevronDown, GraduationCap, LogOut, Settings, UserRound } from "lucide-react";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import type { HeaderMode, HeaderUser } from "./types";
@@ -27,6 +27,20 @@ function getRoleLabel(mode: HeaderMode) {
 
 export function HeaderProfile({ user, mode }: HeaderProfileProps) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+
+    function handleOutsideClick(event: PointerEvent) {
+      if (event.target instanceof Node && !profileRef.current?.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleOutsideClick);
+    return () => document.removeEventListener("pointerdown", handleOutsideClick);
+  }, [profileOpen]);
 
   // Become Course Creator modal state
   const [becomeCreatorOpen, setBecomeCreatorOpen] = useState(false);
@@ -47,7 +61,7 @@ export function HeaderProfile({ user, mode }: HeaderProfileProps) {
 
   return (
     <>
-      <div className="relative">
+      <div ref={profileRef} className="relative">
         {/* Profile Button */}
         <button
           type="button"

@@ -1,6 +1,6 @@
 import { and, asc, categoriesTable, count, courseContentsTable, courseLearningOutcomesTable, courseSectionsTable, coursesTable, db, desc, eq, inArray, sql } from "@repo/database";
 
-import { CreateCourseSchema, CreateCourseVideoSchema, ParamSchema, UpdateCourseSchema } from "@repo/zod";
+import { ContentUpdateParamsSchema, CreateCourseSchema, CreateCourseVideoSchema, ParamSchema, UpdateCourseContentSchema, UpdateCourseSchema } from "@repo/zod";
 
 import type { NextFunction, Request, Response } from "express";
 
@@ -31,13 +31,19 @@ const CreateSectionSchema = z.object({
 const CreateContentSchema = z.object({
   title: z.string().trim().min(1, "Content title is required").max(255, "Content title is too long"),
 
-  contentType: z.string().trim().min(1, "Content type is required").max(50),
+  contentType: z.enum(["video", "article", "resource"], {
+    error: "Choose a supported course content type.",
+  }),
 
   contentUrl: z.string().trim().min(1, "Content URL is required"),
 });
 
 const ReorderIdsSchema = z.object({
   ids: z.array(z.string().uuid()).min(1, "At least one ID is required"),
+});
+
+const SectionIdParamsSchema = z.strictObject({
+  sectionId: z.uuid("Invalid section ID."),
 });
 
 async function getOwnedCourse(courseId: string, userId: string) {
@@ -1444,6 +1450,242 @@ export const addCourseVideo = async (req: Request, res: Response, next: NextFunc
         contentType: video.contentType,
       },
     });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateCourseContent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    // Validate URL params
+    const paramsResult = ContentUpdateParamsSchema.safeParse(req.params);
+
+    if (!paramsResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid section or lesson ID.",
+        errors: paramsResult.error.flatten(),
+      });
+    }
+
+    // Validate request body
+    const bodyResult = UpdateCourseContentSchema.safeParse(req.body);
+
+    if (!bodyResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid lesson data.",
+        errors: bodyResult.error.flatten(),
+      });
+    }
+
+    const { sectionId, contentId } = paramsResult.data;
+    const updates = bodyResult.data;
+
+    // Verify that the section belongs to this creator
+    const [section] = await db
+      .select({
+        id: courseSectionsTable.id,
+        courseId: courseSectionsTable.courseId,
+        courseStatus: coursesTable.status,
+      })
+      .from(courseSectionsTable)
+      .innerJoin(coursesTable, eq(courseSectionsTable.courseId, coursesTable.id))
+      .where(and(eq(courseSectionsTable.id, sectionId), eq(coursesTable.createdBy, userId)))
+      .limit(1);
+
+    if (!section) {
+      return res.status(404).json({
+        success: false,
+        message: "Course section not found.",
+      });
+    }
+
+    if (section.courseStatus === "archived") {
+      return res.status(409).json({
+        success: false,
+        message: "Archived course cannot be edited.",
+      });
+    }
+
+    // Verify that the lesson belongs to this section
+    const [existingLesson] = await db
+      .select({
+        id: courseContentsTable.id,
+      })
+      .from(courseContentsTable)
+      .where(and(eq(courseContentsTable.id, contentId), eq(courseContentsTable.sectionId, sectionId)))
+      .limit(1);
+
+    if (!existingLesson) {
+      return res.status(404).json({
+        success: false,
+        message: "Lesson not found.",
+      });
+    }
+
+    // Build update payload
+    const updateData: Partial<typeof courseContentsTable.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+
+    if (updates.title !== undefined) {
+      updateData.title = updates.title;
+    }
+
+    if (updates.contentType !== undefined) {
+      updateData.contentType = updates.contentType;
+    }
+
+    if (updates.contentUrl !== undefined) {
+      updateData.contentUrl = updates.contentUrl;
+    }
+
+    // Save lesson in the database
+    const [updatedLesson] = await db
+      .update(courseContentsTable)
+      .set(updateData)
+      .where(and(eq(courseContentsTable.id, contentId), eq(courseContentsTable.sectionId, sectionId)))
+      .returning({
+        id: courseContentsTable.id,
+        sectionId: courseContentsTable.sectionId,
+        title: courseContentsTable.title,
+        contentType: courseContentsTable.contentType,
+        contentUrl: courseContentsTable.contentUrl,
+        sequenceOrder: courseContentsTable.sequenceOrder,
+        updatedAt: courseContentsTable.updatedAt,
+      });
+
+    if (!updatedLesson) {
+      return res.status(404).json({
+        success: false,
+        message: "Could not update lesson.",
+      });
+    }
+
+    // Update parent course timestamp
+    await db
+      .update(coursesTable)
+      .set({
+        updatedAt: new Date(),
+      })
+      .where(and(eq(coursesTable.id, section.courseId), eq(coursesTable.createdBy, userId)));
+
+    return res.status(200).json({
+      success: true,
+      message: "Lesson updated successfully.",
+      data: updatedLesson,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateCourseSection = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Authentication required." });
+    }
+
+    const paramsResult = SectionIdParamsSchema.safeParse(req.params);
+    const bodyResult = CreateSectionSchema.safeParse(req.body);
+    if (!paramsResult.success || !bodyResult.success) {
+      return res.status(400).json({ success: false, message: "Validation failed." });
+    }
+
+    const { sectionId } = paramsResult.data;
+    const { title } = bodyResult.data;
+    const [section] = await db
+      .select({ id: courseSectionsTable.id, courseId: courseSectionsTable.courseId, courseStatus: coursesTable.status })
+      .from(courseSectionsTable)
+      .innerJoin(coursesTable, eq(courseSectionsTable.courseId, coursesTable.id))
+      .where(and(eq(courseSectionsTable.id, sectionId), eq(coursesTable.createdBy, userId)))
+      .limit(1);
+
+    if (!section) return res.status(404).json({ success: false, message: "Course section not found." });
+    if (section.courseStatus === "archived") return res.status(409).json({ success: false, message: "Archived course cannot be edited." });
+
+    const [updated] = await db
+      .update(courseSectionsTable)
+      .set({ title, updatedAt: new Date() })
+      .where(eq(courseSectionsTable.id, sectionId))
+      .returning({ id: courseSectionsTable.id, courseId: courseSectionsTable.courseId, title: courseSectionsTable.title, sequenceOrder: courseSectionsTable.sequenceOrder });
+
+    await db.update(coursesTable).set({ updatedAt: new Date() }).where(and(eq(coursesTable.id, section.courseId), eq(coursesTable.createdBy, userId)));
+
+    return res.status(200).json({ success: true, message: "Section updated successfully.", data: updated });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const deleteCourseSection = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, message: "Authentication required." });
+
+    const paramsResult = SectionIdParamsSchema.safeParse(req.params);
+    if (!paramsResult.success) return res.status(400).json({ success: false, message: "Invalid section ID." });
+
+    const { sectionId } = paramsResult.data;
+    const [section] = await db
+      .select({ id: courseSectionsTable.id, courseId: courseSectionsTable.courseId, courseStatus: coursesTable.status })
+      .from(courseSectionsTable)
+      .innerJoin(coursesTable, eq(courseSectionsTable.courseId, coursesTable.id))
+      .where(and(eq(courseSectionsTable.id, sectionId), eq(coursesTable.createdBy, userId)))
+      .limit(1);
+
+    if (!section) return res.status(404).json({ success: false, message: "Course section not found." });
+    if (section.courseStatus === "archived") return res.status(409).json({ success: false, message: "Archived course cannot be edited." });
+
+    await db.delete(courseSectionsTable).where(eq(courseSectionsTable.id, sectionId));
+    await db.update(coursesTable).set({ updatedAt: new Date() }).where(and(eq(coursesTable.id, section.courseId), eq(coursesTable.createdBy, userId)));
+
+    return res.status(200).json({ success: true, message: "Course section deleted successfully." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const deleteCourseContent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, message: "Authentication required." });
+
+    const paramsResult = ContentUpdateParamsSchema.safeParse(req.params);
+    if (!paramsResult.success) return res.status(400).json({ success: false, message: "Invalid section or lesson ID." });
+
+    const { sectionId, contentId } = paramsResult.data;
+    const [section] = await db
+      .select({ id: courseSectionsTable.id, courseId: courseSectionsTable.courseId, courseStatus: coursesTable.status })
+      .from(courseSectionsTable)
+      .innerJoin(coursesTable, eq(courseSectionsTable.courseId, coursesTable.id))
+      .where(and(eq(courseSectionsTable.id, sectionId), eq(coursesTable.createdBy, userId)))
+      .limit(1);
+
+    if (!section) return res.status(404).json({ success: false, message: "Course section not found." });
+    if (section.courseStatus === "archived") return res.status(409).json({ success: false, message: "Archived course cannot be edited." });
+
+    const [deleted] = await db
+      .delete(courseContentsTable)
+      .where(and(eq(courseContentsTable.id, contentId), eq(courseContentsTable.sectionId, sectionId)))
+      .returning({ id: courseContentsTable.id });
+
+    if (!deleted) return res.status(404).json({ success: false, message: "Lesson not found." });
+
+    await db.update(coursesTable).set({ updatedAt: new Date() }).where(and(eq(coursesTable.id, section.courseId), eq(coursesTable.createdBy, userId)));
+
+    return res.status(200).json({ success: true, message: "Lesson deleted successfully." });
   } catch (error) {
     return next(error);
   }

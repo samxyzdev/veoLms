@@ -1,4 +1,4 @@
-import { and, count, countDistinct, coursePurchaseTable, coursesTable, db, desc, eq, gte, sql, sum, usersTable } from "@repo/database";
+import { and, categoriesTable, count, countDistinct, coursePurchaseTable, coursesTable, db, desc, eq, gte, sql, sum, usersTable } from "@repo/database";
 
 import type { NextFunction, Request, Response } from "express";
 
@@ -14,10 +14,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
     }
 
     const [totalCoursesRow, totalStudentsRow, totalPurchasesRow, revenueRow, enrollmentRows, popularCoursesRows, recentEnrollmentsRows, studentGrowthRows, courseCategoriesRows] = await Promise.all([
-      // =====================================================
+      // =========================================
       // TOTAL COURSES
-      // =====================================================
-
+      // =========================================
       db
         .select({
           value: count(),
@@ -25,10 +24,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
         .from(coursesTable)
         .where(eq(coursesTable.createdBy, userId)),
 
-      // =====================================================
+      // =========================================
       // UNIQUE STUDENTS
-      // =====================================================
-
+      // =========================================
       db
         .select({
           value: countDistinct(coursePurchaseTable.userId),
@@ -37,10 +35,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
         .innerJoin(coursesTable, eq(coursePurchaseTable.courseId, coursesTable.id))
         .where(eq(coursesTable.createdBy, userId)),
 
-      // =====================================================
-      // TOTAL PURCHASES
-      // =====================================================
-
+      // =========================================
+      // TOTAL PURCHASES / ENROLLMENTS
+      // =========================================
       db
         .select({
           value: count(),
@@ -49,10 +46,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
         .innerJoin(coursesTable, eq(coursePurchaseTable.courseId, coursesTable.id))
         .where(eq(coursesTable.createdBy, userId)),
 
-      // =====================================================
-      // REVENUE
-      // =====================================================
-
+      // =========================================
+      // TOTAL REVENUE
+      // =========================================
       db
         .select({
           value: sum(coursesTable.price),
@@ -61,11 +57,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
         .innerJoin(coursesTable, eq(coursePurchaseTable.courseId, coursesTable.id))
         .where(eq(coursesTable.createdBy, userId)),
 
-      // =====================================================
-      // ENROLLMENT OVERVIEW
-      // LAST 12 MONTHS
-      // =====================================================
-
+      // =========================================
+      // ENROLLMENT OVERVIEW - LAST 12 MONTHS
+      // =========================================
       db
         .select({
           month: sql<string>`
@@ -87,10 +81,8 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
             gte(
               coursePurchaseTable.createdAt,
               sql`
-                date_trunc(
-                  'month',
-                  current_date
-                ) - interval '11 months'
+                date_trunc('month', current_date)
+                - interval '11 months'
               `,
             ),
           ),
@@ -112,10 +104,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
           `,
         ),
 
-      // =====================================================
-      // POPULAR COURSES
-      // =====================================================
-
+      // =========================================
+      // POPULAR COURSES - TOP 4
+      // =========================================
       db
         .select({
           id: coursesTable.id,
@@ -129,10 +120,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
         .orderBy(desc(count(coursePurchaseTable.id)))
         .limit(4),
 
-      // =====================================================
-      // RECENT ENROLLMENTS
-      // =====================================================
-
+      // =========================================
+      // RECENT ENROLLMENTS - LATEST 5
+      // =========================================
       db
         .select({
           id: coursePurchaseTable.id,
@@ -148,11 +138,9 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
         .orderBy(desc(coursePurchaseTable.createdAt))
         .limit(5),
 
-      // =====================================================
-      // STUDENT GROWTH
-      // LAST 12 MONTHS
-      // =====================================================
-
+      // =========================================
+      // STUDENT GROWTH - LAST 12 MONTHS
+      // =========================================
       db
         .select({
           month: sql<string>`
@@ -174,10 +162,8 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
             gte(
               coursePurchaseTable.createdAt,
               sql`
-                date_trunc(
-                  'month',
-                  current_date
-                ) - interval '11 months'
+                date_trunc('month', current_date)
+                - interval '11 months'
               `,
             ),
           ),
@@ -199,34 +185,47 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
           `,
         ),
 
-      // =====================================================
-      // COURSE CATEGORIES
-      // =====================================================
-
+      // =========================================
+      // COURSE CATEGORIES - ACTUAL CATEGORY NAME
+      // =========================================
       db
         .select({
-          name: coursesTable.categoryId,
+          name: sql<string>`
+            COALESCE(
+              ${categoriesTable.name},
+              'Uncategorized'
+            )
+          `,
           courses: count(),
         })
         .from(coursesTable)
+        .leftJoin(categoriesTable, eq(coursesTable.categoryId, categoriesTable.id))
         .where(eq(coursesTable.createdBy, userId))
-        .groupBy(coursesTable.categoryId)
+        .groupBy(categoriesTable.id, categoriesTable.name)
         .orderBy(desc(count())),
     ]);
 
+    // =========================================
+    // NORMALIZE DATABASE RESULTS
+    // =========================================
     const totalCourses = Number(totalCoursesRow[0]?.value ?? 0);
 
+    const totalStudents = Number(totalStudentsRow[0]?.value ?? 0);
+
+    const totalPurchases = Number(totalPurchasesRow[0]?.value ?? 0);
+
+    const totalRevenue = Number(revenueRow[0]?.value ?? 0);
+
+    // =========================================
+    // RESPONSE
+    // =========================================
     return res.status(200).json({
       success: true,
-
       data: {
         totalCourses,
-
-        totalStudents: Number(totalStudentsRow[0]?.value ?? 0),
-
-        totalPurchases: Number(totalPurchasesRow[0]?.value ?? 0),
-
-        totalRevenue: Number(revenueRow[0]?.value ?? 0),
+        totalStudents,
+        totalPurchases,
+        totalRevenue,
 
         enrollmentOverview: enrollmentRows.map((item) => ({
           month: item.month,
@@ -254,11 +253,15 @@ export const getCourseCreatorStats = async (req: Request, res: Response, next: N
           value: Number(item.value),
         })),
 
-        courseCategories: courseCategoriesRows.map((item) => ({
-          name: item.name,
-          courses: Number(item.courses),
-          percentage: totalCourses > 0 ? Number(((Number(item.courses) / totalCourses) * 100).toFixed(1)) : 0,
-        })),
+        courseCategories: courseCategoriesRows.map((item) => {
+          const courses = Number(item.courses);
+
+          return {
+            name: item.name,
+            courses,
+            percentage: totalCourses > 0 ? Number(((courses / totalCourses) * 100).toFixed(1)) : 0,
+          };
+        }),
       },
     });
   } catch (error) {

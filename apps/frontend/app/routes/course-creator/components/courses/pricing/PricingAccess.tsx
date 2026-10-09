@@ -1,201 +1,59 @@
-// app/routes/admin/components/courses/pricing/PricingAccess.tsx
-
-import { useState } from "react";
-
-import { initialCoupons } from "../../../data/coursePricingData";
-
-import PricingInformation from "./PricingInformation";
-import AccessType from "./AccessType";
-import EnrollmentSettings from "./EnrollmentSettings";
-import CourseAvailability from "./CourseAvailability";
-import AdditionalSettings from "./AdditionalSettings";
-import CouponCodes from "./CouponCodes";
-import CouponModal from "./CouponModal";
-import PricingSummary from "./PricingSummary";
-
-import type { AccessType as AccessTypeValue, Coupon } from "./types";
+import { BadgeIndianRupee, Info } from "lucide-react";
 
 type PricingAccessProps = {
+  price: string;
+  onPriceChange: (value: string) => void;
   onPrevious?: () => void;
   onNext?: () => void;
   onSaveDraft?: () => void;
+  disabled?: boolean;
 };
 
-export default function PricingAccess({
-  onPrevious,
-  onNext,
-  onSaveDraft,
-}: PricingAccessProps) {
-  const [price, setPrice] = useState("999");
-
-  const [comparePrice, setComparePrice] = useState("1499");
-
-  const [accessType, setAccessType] = useState<AccessTypeValue>("public");
-
-  const [limitEnrollments, setLimitEnrollments] = useState(true);
-
-  const [maxEnrollments, setMaxEnrollments] = useState("500");
-
-  const [waitlist, setWaitlist] = useState(false);
-
-  const [setEnrollmentPeriod, setSetEnrollmentPeriod] = useState(true);
-
-  const [enrollmentStartDate, setEnrollmentStartDate] = useState("2026-04-15");
-
-  const [enrollmentEndDate, setEnrollmentEndDate] = useState("");
-
-  const [allowCertificate, setAllowCertificate] = useState(true);
-
-  const [allowDiscussions, setAllowDiscussions] = useState(true);
-
-  const [showInMarketplace, setShowInMarketplace] = useState(true);
-
-  const [featuredCourse, setFeaturedCourse] = useState(false);
-
-  const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons);
-
-  const [showCouponModal, setShowCouponModal] = useState(false);
-
-  function addCoupon(coupon: Coupon) {
-    setCoupons((current) => [coupon, ...current]);
-
-    setShowCouponModal(false);
-  }
-
-  function deleteCoupon(id: number) {
-    const confirmed = window.confirm("Delete this coupon?");
-
-    if (!confirmed) return;
-
-    setCoupons((current) => current.filter((coupon) => coupon.id !== id));
-  }
-
-  function duplicateCoupon(coupon: Coupon) {
-    const duplicated: Coupon = {
-      ...coupon,
-      id: Date.now(),
-      code: `${coupon.code}_COPY`,
-      used: 0,
-      status: "active",
-    };
-
-    setCoupons((current) => [duplicated, ...current]);
-  }
+export default function PricingAccess({ price, onPriceChange, onPrevious, onNext, onSaveDraft, disabled = false }: PricingAccessProps) {
+  const numericPrice = Number(price);
+  const isPriceValid = price.trim() !== "" && Number.isFinite(numericPrice) && numericPrice >= 0 && numericPrice <= 100_000;
+  const isFree = numericPrice === 0 && isPriceValid;
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-5">
-        <h2 className="text-2xl font-bold tracking-tight text-[#101537]">
-          Pricing & Access
-        </h2>
-
-        <p className="mt-1 text-sm text-slate-500">
-          Configure your course price, access type, enrollment limits,
-          availability and discount coupons.
-        </p>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold tracking-tight text-[#101537]">Pricing</h2>
+        <p className="mt-1 text-sm text-slate-500">Set the price students will pay. Enter 0 to make the course free.</p>
       </div>
 
-      {/* Pricing + Access */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
-        <PricingInformation
-          price={price}
-          comparePrice={comparePrice}
-          onPriceChange={setPrice}
-          onComparePriceChange={setComparePrice}
-        />
-
-        <AccessType value={accessType} onChange={setAccessType} />
-      </div>
-
-      {/* Enrollment + Availability + Additional */}
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
-        <EnrollmentSettings
-          limitEnrollments={limitEnrollments}
-          maxEnrollments={maxEnrollments}
-          waitlist={waitlist}
-          onLimitChange={setLimitEnrollments}
-          onMaxEnrollmentsChange={setMaxEnrollments}
-          onWaitlistChange={setWaitlist}
-        />
-
-        <CourseAvailability
-          enabled={setEnrollmentPeriod}
-          startDate={enrollmentStartDate}
-          endDate={enrollmentEndDate}
-          onEnabledChange={setSetEnrollmentPeriod}
-          onStartDateChange={setEnrollmentStartDate}
-          onEndDateChange={setEnrollmentEndDate}
-        />
-
-        <AdditionalSettings
-          allowCertificate={allowCertificate}
-          allowDiscussions={allowDiscussions}
-          showInMarketplace={showInMarketplace}
-          featuredCourse={featuredCourse}
-          onCertificateChange={setAllowCertificate}
-          onDiscussionsChange={setAllowDiscussions}
-          onMarketplaceChange={setShowInMarketplace}
-          onFeaturedChange={setFeaturedCourse}
-        />
-      </div>
-
-      {/* Coupons */}
-      <CouponCodes
-        coupons={coupons}
-        onGenerate={() => setShowCouponModal(true)}
-        onDelete={deleteCoupon}
-        onDuplicate={duplicateCoupon}
-      />
-
-      {/* Summary */}
-      <PricingSummary
-        price={price}
-        comparePrice={comparePrice}
-        accessType={accessType}
-        limitEnrollments={limitEnrollments}
-        maxEnrollments={maxEnrollments}
-        allowCertificate={allowCertificate}
-        allowDiscussions={allowDiscussions}
-      />
-
-      {/* Navigation */}
-      {/* <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
-        <button
-          type="button"
-          onClick={onPrevious}
-          className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-        >
-          Previous
-        </button>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            Save Draft
-          </button>
-
-          <button
-            type="button"
-            onClick={onNext}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-700"
-          >
-            Next
-            <span>→</span>
-          </button>
+      <div className="max-w-xl rounded-2xl border border-slate-200 bg-white p-5">
+        <label htmlFor="course-price" className="mb-2 block text-sm font-semibold text-slate-900">Course price (INR)</label>
+        <div className="relative">
+          <BadgeIndianRupee className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+          <input
+            id="course-price"
+            type="number"
+            min="0"
+            step="0.01"
+            max="100000"
+            inputMode="decimal"
+            value={price}
+            onChange={(event) => onPriceChange(event.target.value)}
+            disabled={disabled}
+            className="h-12 w-full rounded-xl border border-slate-200 pl-11 pr-4 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:bg-slate-50"
+            placeholder="0"
+          />
         </div>
-      </div> */}
+        {isPriceValid ? <p className="mt-2 text-sm font-medium text-violet-700">{isFree ? "Free course" : `Paid course · ₹${numericPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}</p> : <p className="mt-2 text-sm text-red-600">Enter a price from ₹0 to ₹100,000.</p>}
 
-      {/* Coupon Modal */}
-      {showCouponModal && (
-        <CouponModal
-          onClose={() => setShowCouponModal(false)}
-          onCreate={addCoupon}
-        />
-      )}
+        <div className="mt-5 flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+          <p>Pricing is saved with your course. Additional access, coupon, and certificate settings can be added when those options are supported by the course service.</p>
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+        <button type="button" onClick={onPrevious} disabled={disabled} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">Back</button>
+        <div className="flex gap-2">
+          <button type="button" onClick={onSaveDraft} disabled={disabled} className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Save Draft</button>
+          <button type="button" onClick={onNext} disabled={disabled || !isPriceValid} className="h-10 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50">Review Course</button>
+        </div>
+      </div>
     </div>
   );
 }

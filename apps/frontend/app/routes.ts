@@ -27,6 +27,10 @@ export default [
     route("my-learning", "./routes/student/my-learning/route.tsx"),
     // /dashboard/my-learning/:courseId
     route("my-learning/:courseId", "./routes/student/my-learning/$courseId/route.tsx"),
+    // /dashboard/cart
+    route("cart", "./routes/student/cart/route.tsx"),
+    // /dashboard/checkout
+    route("checkout", "./routes/student/checkout/route.tsx"),
     // /dashboard/explore-courses
     route("explore-courses", "./routes/student/explore-courses/route.tsx"),
     // /dashboard/explore-courses/:courseId

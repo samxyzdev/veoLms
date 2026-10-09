@@ -18,6 +18,10 @@ import {
   // Course contents
   addCourseContent,
   reorderCourseContents,
+  updateCourseContent,
+  updateCourseSection,
+  deleteCourseSection,
+  deleteCourseContent,
 } from "../controllers/courseCreatorCourseController";
 import { createCourseThumbnailUploadUrl } from "../controllers/courseCreatorUploadController";
 
@@ -35,9 +39,13 @@ courseCreatorCourseRoutes.patch("/:courseId/restore", restoreCourse);
 // COURSE SECTIONS
 courseCreatorCourseRoutes.post("/:courseId/sections", createCourseSection);
 courseCreatorCourseRoutes.patch("/:courseId/sections/reorder", reorderCourseSections);
+courseCreatorCourseRoutes.patch("/sections/:sectionId", updateCourseSection);
+courseCreatorCourseRoutes.delete("/sections/:sectionId", deleteCourseSection);
 // COURSE CONTENT
 courseCreatorCourseRoutes.post("/sections/:sectionId/contents", addCourseContent);
 courseCreatorCourseRoutes.patch("/sections/:sectionId/contents/reorder", reorderCourseContents);
+courseCreatorCourseRoutes.patch("/sections/:sectionId/contents/:contentId", updateCourseContent);
+courseCreatorCourseRoutes.delete("/sections/:sectionId/contents/:contentId", deleteCourseContent);
 //  VIDEO
 courseCreatorCourseRoutes.post("/:courseId/videos", addCourseVideo);
 // THUMBNAIL

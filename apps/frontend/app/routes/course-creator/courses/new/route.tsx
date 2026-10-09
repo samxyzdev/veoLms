@@ -1,12 +1,12 @@
+import axios, { isAxiosError } from "axios";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ChangeEvent } from "react";
 
-import { BarChart3, Check, CircleHelp, Folder, Globe, Info, List, Plus, Trash2, Upload, X } from "lucide-react";
+import { BarChart3, Check, CircleHelp, Folder, Globe, Info, Plus, Trash2, Upload, X } from "lucide-react";
 
-import { isAxiosError } from "axios";
-
-import { redirect } from "react-router";
+import { redirect, useLoaderData } from "react-router";
 
 import CourseContent from "../../components/courses/content/CourseContent";
 import PricingAccess from "../../components/courses/pricing/PricingAccess";
@@ -15,6 +15,7 @@ import ReviewPublish from "../../components/courses/review/ReviewPublish";
 import { api } from "~/lib/axios";
 import { COURSE_LEVEL_OPTIONS, getCourseLevelValue, type CourseLevel } from "~/lib/course";
 import { CourseFormSelect as SelectField } from "~/components/forms/CourseFormSelect";
+import type { Section } from "../../components/courses/content/types";
 
 // =========================================================
 // TYPES
@@ -33,7 +34,25 @@ type DraftPayload = {
   description?: string;
   courseLanguage?: string;
   level?: CourseLevel;
+  categoryId?: string;
+  price?: number;
+  learningOutcomes?: string[];
+  thumbnailUrl?: string;
 };
+
+type Category = { id: string; name: string };
+type BackendSection = { id: string; courseId: string; title: string; sequenceOrder: number; contents: Array<{ id: string; sectionId: string; title: string; contentType: string; contentUrl: string | null; sequenceOrder: number }> };
+type CourseLoaderData = { categories: Category[] };
+
+export async function clientLoader(): Promise<CourseLoaderData> {
+  try {
+    const response = await api.get("/course-creator/courses/categories");
+    return { categories: response.data?.data ?? [] };
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 401) throw redirect("/signin");
+    throw new Response("Failed to load course categories.", { status: 500 });
+  }
+}
 
 // =========================================================
 // STEPS
@@ -194,6 +213,7 @@ function StepProgress({ currentStep, onStepChange }: { currentStep: number; onSt
 // =========================================================
 
 export default function CreateCourseRoute() {
+  const { categories } = useLoaderData<typeof clientLoader>();
   // =======================================================
   // STEP
   // =======================================================
@@ -210,13 +230,25 @@ export default function CreateCourseRoute() {
 
   const [category, setCategory] = useState("");
 
-  const [subcategory, setSubcategory] = useState("");
 
   const [level, setLevel] = useState("");
 
   const [language, setLanguage] = useState("");
 
+  const [price, setPrice] = useState("0");
+
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+
+  const [thumbnailKey, setThumbnailKey] = useState<string | null>(null);
+
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null);
+
+  const [isThumbnailUploading, setIsThumbnailUploading] = useState(false);
+
+  const thumbnailObjectUrlRef = useRef<string | null>(null);
+
+  const [sections, setSections] = useState<BackendSection[]>([]);
+  const [contentError, setContentError] = useState<string | null>(null);
 
   const [outcomes, setOutcomes] = useState(defaultOutcomes);
 
@@ -273,28 +305,18 @@ export default function CreateCourseRoute() {
    * from racing each other and an older response overwriting
    * newer data.
    */
-  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  /**
-   * Keep the latest form values available to the queued
-   * save function.
-   */
-  const latestDraftRef = useRef<DraftPayload>({
-    title: "",
-    description: "",
-    courseLanguage: "",
-  });
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
-  latestDraftRef.current = {
-    title: title.trim() || undefined,
-    description: description.trim() || undefined,
-    courseLanguage: language.trim() || undefined,
-    level: level ? getCourseLevelValue(level) : undefined,
-  };
+  useEffect(() => () => {
+    if (thumbnailObjectUrlRef.current) URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+  }, []);
 
   // =======================================================
   // VALIDATION DISPLAY
@@ -335,7 +357,7 @@ export default function CreateCourseRoute() {
   // MISSING REQUIRED FIELDS
   // =======================================================
 
-  const isTitleMissing = title.trim().length === 0;
+  const isTitleMissing = title.trim().length < 3;
 
   const isDescriptionMissing = description.trim().length === 0;
 
@@ -413,7 +435,7 @@ export default function CreateCourseRoute() {
 
     const currentLanguage = language.trim();
 
-    if (currentTitle) {
+    if (currentTitle.length >= 3) {
       payload.title = currentTitle;
     }
 
@@ -428,6 +450,17 @@ export default function CreateCourseRoute() {
     if (level) {
       payload.level = getCourseLevelValue(level);
     }
+
+    const selectedCategory = categories.find((item) => item.name === category);
+    if (selectedCategory) payload.categoryId = selectedCategory.id;
+
+    const numericPrice = Number(price);
+    if (price.trim() !== "" && Number.isFinite(numericPrice) && numericPrice >= 0) payload.price = Math.round(numericPrice * 100);
+
+    const filledOutcomes = outcomes.map((outcome) => outcome.trim()).filter(Boolean);
+    if (filledOutcomes.length) payload.learningOutcomes = filledOutcomes;
+
+    if (thumbnailKey) payload.thumbnailUrl = thumbnailKey;
 
     return payload;
   }
@@ -452,14 +485,26 @@ export default function CreateCourseRoute() {
      * supports exists, don't make an empty request.
      */
     if (!hasDraftData()) {
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
 
-    const saveOperation = async () => {
+    const numericPrice = Number(price);
+    if (price.trim() === "" || !Number.isFinite(numericPrice) || numericPrice < 0 || numericPrice > 100_000) {
+      setSaveState("error");
+      setSaveError("Course price must be between ₹0 and ₹100,000.");
+      return Promise.resolve(false);
+    }
+    if (title.trim().length > 0 && title.trim().length < 3) {
+      setSaveState("error");
+      setSaveError("Course title must be at least 3 characters.");
+      return Promise.resolve(false);
+    }
+
+    const saveOperation = async (): Promise<boolean> => {
       const payload = buildDraftPayload();
 
       if (Object.keys(payload).length === 0) {
-        return;
+        return true;
       }
 
       const saveVersion = draftVersionRef.current;
@@ -481,7 +526,8 @@ export default function CreateCourseRoute() {
          * POST /course-creator/courses
          */
         if (!courseIdRef.current) {
-          response = await api.post("/course-creator/courses", payload);
+          const { learningOutcomes, ...draftFields } = payload;
+          response = await api.post("/course-creator/courses", draftFields);
 
           const newCourseId = response.data?.data?.courseId;
 
@@ -492,6 +538,10 @@ export default function CreateCourseRoute() {
           courseIdRef.current = newCourseId;
 
           setCourseId(newCourseId);
+
+          if (learningOutcomes?.length) {
+            await api.patch(`/course-creator/courses/${newCourseId}`, { learningOutcomes });
+          }
         } else {
           /**
            * -------------------------------------------------
@@ -516,7 +566,9 @@ export default function CreateCourseRoute() {
            * state.
            */
           setSaveState("unsaved");
+          return false;
         }
+        return true;
       } catch (error) {
         console.error("Course draft save failed:", error);
 
@@ -531,6 +583,7 @@ export default function CreateCourseRoute() {
         setSaveState("error");
 
         setSaveError(message);
+        return false;
       }
     };
 
@@ -542,7 +595,7 @@ export default function CreateCourseRoute() {
      */
     const queuedOperation = saveQueueRef.current.then(saveOperation, saveOperation);
 
-    saveQueueRef.current = queuedOperation.catch(() => undefined);
+    saveQueueRef.current = queuedOperation.catch(() => false);
 
     return queuedOperation;
   }
@@ -590,7 +643,7 @@ export default function CreateCourseRoute() {
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [title, description, level, language, category]);
+  }, [title, description, level, language, category, price, outcomes, thumbnailKey]);
 
   // =======================================================
   // MANUAL SAVE
@@ -611,14 +664,14 @@ export default function CreateCourseRoute() {
 
     userHasEditedRef.current = true;
 
-    await queueSaveDraft();
+    return queueSaveDraft();
   }
 
   // =======================================================
   // THUMBNAIL
   // =======================================================
 
-  function handleThumbnailChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleThumbnailChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -634,33 +687,69 @@ export default function CreateCourseRoute() {
       return;
     }
 
-    /**
-     * Revoke previous local object URL before creating
-     * a new one.
-     */
-    if (thumbnailPreview) {
-      URL.revokeObjectURL(thumbnailPreview);
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setThumbnailError("Choose a PNG, JPG, or WebP image.");
+      event.target.value = "";
+      return;
     }
 
-    const imageUrl = URL.createObjectURL(file);
+    setThumbnailError(null);
+    setIsThumbnailUploading(true);
+    try {
+      let id = courseIdRef.current;
+      if (!id) {
+        const saved = await queueSaveDraft();
+        if (!saved) throw new Error("Save the course draft before uploading its thumbnail.");
+        id = courseIdRef.current;
+      }
+      if (!id) {
+        const created = await api.post("/course-creator/courses", {});
+        id = created.data?.data?.courseId;
+        if (!id) throw new Error("Server did not return the course ID.");
+        courseIdRef.current = id;
+        setCourseId(id);
+      }
 
-    setThumbnailPreview(imageUrl);
+      const presign = await api.post(`/course-creator/courses/${id}/thumbnail/presign`, {
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+      });
+      const upload = presign.data?.data;
+      if (!upload?.uploadUrl || !upload?.key) throw new Error("The server did not return the thumbnail upload details.");
+      await axios.put(upload.uploadUrl, file, { headers: { "Content-Type": file.type } });
+      await api.patch(`/course-creator/courses/${id}`, { thumbnailUrl: upload.key });
 
-    /**
-     * Current backend form does not yet receive the actual
-     * uploaded thumbnail URL from this route.
-     *
-     * So we don't pretend the local blob URL has been
-     * persisted to the database.
-     */
+      if (thumbnailObjectUrlRef.current) URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+      const preview = URL.createObjectURL(file);
+      thumbnailObjectUrlRef.current = preview;
+      setThumbnailPreview(preview);
+      setThumbnailKey(upload.key);
+      setSaveState("saved");
+      setSaveError(null);
+    } catch (error) {
+      setThumbnailError(isAxiosError(error) ? error.response?.data?.message ?? "Could not upload thumbnail." : error instanceof Error ? error.message : "Could not upload thumbnail.");
+      setSaveState("error");
+    } finally {
+      setIsThumbnailUploading(false);
+      event.target.value = "";
+    }
   }
 
-  function removeThumbnail() {
-    if (thumbnailPreview) {
-      URL.revokeObjectURL(thumbnailPreview);
+  async function removeThumbnail() {
+    if (isThumbnailUploading) return;
+    try {
+      if (saveState === "unsaved" && !(await handleSaveDraft())) return;
+      if (thumbnailKey && courseIdRef.current) await api.patch(`/course-creator/courses/${courseIdRef.current}`, { thumbnailUrl: null });
+      if (thumbnailObjectUrlRef.current) URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+      thumbnailObjectUrlRef.current = null;
+      setThumbnailKey(null);
+      setThumbnailPreview(null);
+      setThumbnailError(null);
+      setSaveState("saved");
+    } catch (error) {
+      setThumbnailError(isAxiosError(error) ? error.response?.data?.message ?? "Could not remove thumbnail." : "Could not remove thumbnail.");
     }
-
-    setThumbnailPreview(null);
   }
 
   // =======================================================
@@ -669,6 +758,7 @@ export default function CreateCourseRoute() {
 
   function updateOutcome(index: number, value: string) {
     setOutcomes((current) => current.map((outcome, outcomeIndex) => (outcomeIndex === index ? value : outcome)));
+    markDraftDirty();
   }
 
   function addOutcome() {
@@ -677,17 +767,54 @@ export default function CreateCourseRoute() {
     }
 
     setOutcomes((current) => [...current, ""]);
+    markDraftDirty();
   }
 
   function removeOutcome(index: number) {
     setOutcomes((current) => current.filter((_, outcomeIndex) => outcomeIndex !== index));
+    markDraftDirty();
   }
 
   // =======================================================
   // NEXT
   // =======================================================
 
-  function handleNext() {
+  async function handlePublishCourse() {
+    if (isPublishing || isThumbnailUploading) return;
+    const savedContents = sections.flatMap((section) => section.contents);
+    if (!savedContents.length || savedContents.some((content) => content.id.startsWith("draft:") || !content.contentUrl?.trim())) {
+      setContentError("Add at least one lesson and save or remove each unfinished lesson before publishing.");
+      setCurrentStep(2);
+      return;
+    }
+    setPublishError(null);
+    const saved = await handleSaveDraft();
+    if (!saved) {
+      setPublishError("Save failed. Fix the save error before publishing.");
+      return;
+    }
+    const id = courseIdRef.current;
+    if (!id) {
+      setPublishError("Save the course draft before publishing.");
+      return;
+    }
+    setIsPublishing(true);
+    try {
+      await api.patch(`/course-creator/courses/${id}/publish`, {});
+      window.location.href = "/course-creator/courses";
+    } catch (error) {
+      if (isAxiosError<{ message?: string; errors?: { missingFields?: string[] } }>(error)) {
+        const missing = error.response?.data?.errors?.missingFields;
+        setPublishError(missing?.length ? `${error.response?.data?.message ?? "Course is not ready to publish."} Missing: ${missing.join(", ")}.` : error.response?.data?.message ?? "Could not publish course.");
+      } else {
+        setPublishError(error instanceof Error ? error.message : "Could not publish course.");
+      }
+    } finally {
+      setIsPublishing(false);
+    }
+  }
+
+  async function handleNext() {
     // -----------------------------------------------------
     // STEP 1 VALIDATION
     // -----------------------------------------------------
@@ -711,6 +838,23 @@ export default function CreateCourseRoute() {
 
       // Everything is valid
       setShowBasicValidation(false);
+      const saved = await handleSaveDraft();
+      if (!saved) return;
+    }
+
+    if (currentStep === 3) {
+      const numericPrice = Number(price);
+      if (price.trim() === "" || !Number.isFinite(numericPrice) || numericPrice < 0 || numericPrice > 100_000) return;
+      const saved = await handleSaveDraft();
+      if (!saved) return;
+    }
+
+    if (currentStep === 2) {
+      const contents = sections.flatMap((section) => section.contents);
+      if (!contents.length || contents.some((content) => content.id.startsWith("draft:") || !content.contentUrl?.trim())) {
+        setContentError("Add at least one lesson and save or remove each unfinished lesson before continuing.");
+        return;
+      }
     }
 
     // -----------------------------------------------------
@@ -727,9 +871,7 @@ export default function CreateCourseRoute() {
     // FINAL STEP
     // -----------------------------------------------------
 
-    console.log("Publish course", {
-      courseId: courseIdRef.current,
-    });
+    await handlePublishCourse();
   }
 
   // =======================================================
@@ -909,7 +1051,7 @@ export default function CreateCourseRoute() {
                     }`}
                   />
 
-                  {showTitleError && <p className="mt-1.5 text-xs font-medium text-red-500">This field is required.</p>}
+                  {showTitleError && <p className="mt-1.5 text-xs font-medium text-red-500">{title.trim().length > 0 ? "Enter at least 3 characters." : "This field is required."}</p>}
                 </div>
 
                 {/* =================================================
@@ -952,10 +1094,10 @@ export default function CreateCourseRoute() {
                 </div>
 
                 {/* =================================================
-                    CATEGORY + SUBCATEGORY
+                    CATEGORY
                 ================================================= */}
 
-                <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div className="mb-5 grid grid-cols-1 gap-5">
                   {/* Category */}
 
                   <div>
@@ -970,40 +1112,17 @@ export default function CreateCourseRoute() {
 
                         markFieldTouched("category");
 
-                        /**
-                         * The current state stores the
-                         * category label, while the backend
-                         * expects categoryId (UUID).
-                         *
-                         * So we mark the draft dirty, but
-                         * don't send this label as categoryId.
-                         */
                         markDraftDirty();
                       }}
                       icon={<Folder className="h-4 w-4" />}
                       placeholder="Select a category"
                       error={showCategoryError}
-                      options={["Web Development", "Design", "Business", "Marketing", "Data Science", "Personal Development"]}
+                      options={categories.map((item) => item.name)}
                     />
 
                     {showCategoryError && <p className="mt-1.5 text-xs font-medium text-red-500">Please select a category.</p>}
                   </div>
 
-                  {/* Subcategory */}
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-900">Subcategory</label>
-
-                    <SelectField
-                      value={subcategory}
-                      onChange={(value) => {
-                        setSubcategory(value);
-                      }}
-                      placeholder="Select a subcategory"
-                      icon={<List className="h-4 w-4" />}
-                      options={["Frontend Development", "Backend Development", "Full Stack Development", "Mobile Development", "DevOps"]}
-                    />
-                  </div>
                 </div>
 
                 {/* =================================================
@@ -1079,7 +1198,7 @@ export default function CreateCourseRoute() {
                         showThumbnailError ? "border-red-300 bg-red-50/40 hover:border-red-400" : "border-slate-300 bg-slate-50/70 hover:border-violet-400 hover:bg-violet-50/30"
                       }`}
                     >
-                      <input type="file" accept="image/png,image/jpeg,image/svg+xml" onChange={handleThumbnailChange} className="hidden" />
+                      <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void handleThumbnailChange(event)} className="hidden" />
 
                       <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm">
                         <Upload className="h-4 w-4" />
@@ -1089,7 +1208,7 @@ export default function CreateCourseRoute() {
                         Click to upload <span className="font-normal text-slate-400">or drag and drop</span>
                       </p>
 
-                      <p className="mt-1 text-xs text-slate-400">PNG, JPG or SVG (Max 5MB)</p>
+                      <p className="mt-1 text-xs text-slate-400">PNG, JPG or WebP (Max 5MB)</p>
 
                       <p className="mt-0.5 text-xs text-slate-400">Recommended size: 1280 × 720px</p>
                     </label>
@@ -1098,6 +1217,8 @@ export default function CreateCourseRoute() {
 
                     <CourseThumbnail title={title} preview={thumbnailPreview} onRemove={removeThumbnail} />
                   </div>
+
+                  {thumbnailError && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{thumbnailError}</p>}
 
                   {showThumbnailError && <p className="mt-1.5 text-xs font-medium text-red-500">Please upload a course thumbnail.</p>}
                 </div>
@@ -1181,7 +1302,14 @@ export default function CreateCourseRoute() {
                 STEP 2
             ================================================= */}
 
-            {currentStep === 2 && <CourseContent />}
+            {currentStep === 2 && courseId && <>
+              {contentError && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{contentError}</div>}
+              <CourseContent courseId={courseId} sections={sections} onSectionsChange={(next) => {
+                const updated = next.map((section, sectionIndex) => ({ id: String(section.id), courseId, title: section.title, sequenceOrder: sectionIndex + 1, contents: section.lessons.map((lesson, lessonIndex) => ({ id: String(lesson.id), sectionId: String(section.id), title: lesson.title, contentType: lesson.type, contentUrl: lesson.contentUrl ?? "", sequenceOrder: lessonIndex + 1 })) }));
+                setSections(updated);
+                if (!updated.some((section) => section.contents.some((content) => content.id.startsWith("draft:") || !content.contentUrl.trim()))) setContentError(null);
+              }} />
+            </>}
 
             {/* =================================================
                 STEP 3
@@ -1189,11 +1317,17 @@ export default function CreateCourseRoute() {
 
             {currentStep === 3 && (
               <PricingAccess
-                onPrevious={() => setCurrentStep(2)}
-                onNext={() => setCurrentStep(4)}
-                onSaveDraft={() => {
-                  void handleSaveDraft();
+                price={price}
+                onPriceChange={(value) => {
+                  setPrice(value);
+                  markDraftDirty();
                 }}
+                onPrevious={() => setCurrentStep(2)}
+                onNext={async () => {
+                  if (await handleSaveDraft()) setCurrentStep(4);
+                }}
+                onSaveDraft={() => void handleSaveDraft()}
+                disabled={isPublishing || isThumbnailUploading}
               />
             )}
 
@@ -1203,15 +1337,21 @@ export default function CreateCourseRoute() {
 
             {currentStep === 4 && (
               <ReviewPublish
+                title={title}
+                description={description}
+                category={category}
+                level={level}
+                language={language}
+                price={price}
+                thumbnailUrl={thumbnailPreview}
+                outcomes={outcomes}
+                sections={sections}
+                isSaving={saveState === "saving" || isThumbnailUploading}
+                isPublishing={isPublishing}
+                publishError={publishError}
                 onPrevious={() => setCurrentStep(3)}
-                onSaveDraft={() => {
-                  void handleSaveDraft();
-                }}
-                onPublish={() => {
-                  console.log("Publishing course...", {
-                    courseId: courseIdRef.current,
-                  });
-                }}
+                onSaveDraft={() => void handleSaveDraft()}
+                onPublish={() => void handlePublishCourse()}
                 onEditBasicInfo={() => setCurrentStep(1)}
                 onEditContent={() => setCurrentStep(2)}
                 onEditPricing={() => setCurrentStep(3)}
@@ -1282,9 +1422,6 @@ export default function CreateCourseRoute() {
                   <p className="mt-1 text-sm text-slate-500">This is how your course will appear to students.</p>
                 </div>
 
-                <button type="button" className="whitespace-nowrap text-sm font-semibold text-violet-600 transition hover:text-violet-700">
-                  View on Site ↗
-                </button>
               </div>
 
               <CourseThumbnail title={title} preview={thumbnailPreview} onRemove={removeThumbnail} />

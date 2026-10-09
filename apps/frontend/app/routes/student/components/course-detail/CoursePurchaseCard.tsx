@@ -1,7 +1,9 @@
 import { CheckCircle2, ShoppingCart } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 
 import type { CourseDetail } from "../../explore-courses/$courseId/route";
+import { useCart } from "../cart/CartContext";
 
 type Props = {
   course: CourseDetail;
@@ -20,6 +22,21 @@ function formatPrice(price: number | null) {
 
 export function CoursePurchaseCard({ course, isPurchased }: Props) {
   const price = formatPrice(course.price);
+  const { addToCart, hasCourse } = useCart();
+  const [isAdding, setIsAdding] = useState(false);
+  const [cartError, setCartError] = useState<string | null>(null);
+
+  async function handleAddToCart() {
+    setIsAdding(true);
+    setCartError(null);
+    try {
+      await addToCart(course.id);
+    } catch {
+      setCartError("Could not add this course. Please try again.");
+    } finally {
+      setIsAdding(false);
+    }
+  }
 
   return (
     <aside className="self-start rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
@@ -45,15 +62,26 @@ export function CoursePurchaseCard({ course, isPurchased }: Props) {
       )}
 
       {/* Cart */}
-      {!isPurchased && (
+      {!isPurchased && !hasCourse(course.id) && (
         <button
           type="button"
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500 bg-white px-4 py-3 text-xs font-bold text-slate-800 transition hover:bg-indigo-50"
+          onClick={() => void handleAddToCart()}
+          disabled={isAdding}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500 bg-white px-4 py-3 text-xs font-bold text-slate-800 transition hover:bg-indigo-50 disabled:cursor-wait disabled:opacity-60"
         >
           <ShoppingCart size={14} />
-          Add to Cart
+          {isAdding ? "Adding to Cart…" : "Add to Cart"}
         </button>
       )}
+
+      {!isPurchased && hasCourse(course.id) && (
+        <Link to="/dashboard/cart" className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500 bg-white px-4 py-3 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50">
+          <ShoppingCart size={14} />
+          View in Cart
+        </Link>
+      )}
+
+      {cartError && <p role="alert" className="mt-2 text-[11px] text-rose-600">{cartError}</p>}
 
       {/* Features */}
       <div className="mt-5 space-y-3">

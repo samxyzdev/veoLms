@@ -1,5 +1,6 @@
 import {
   and,
+  cartTable,
   asc,
   categoriesTable,
   contentProgressTable,
@@ -10,6 +11,7 @@ import {
   courseSectionsTable,
   coursesTable,
   db,
+  delete as deleteRows,
   eq,
   reviewsTable,
   sql,
@@ -1070,6 +1072,152 @@ export const getExploreCourse = async (req: Request, res: Response, next: NextFu
         },
       },
     });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+
+/* -------------------------------------------------------------------------- */
+/* Student Cart                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** Returns the current student's saved cart with course details. */
+export const getCourseCart = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Authentication required." });
+  }
+
+  try {
+    const cartCourses = await db
+      .select({
+        courseId: coursesTable.id,
+        title: coursesTable.title,
+        description: coursesTable.description,
+        price: coursesTable.price,
+        thumbnailUrl: coursesTable.thumbnailUrl,
+        categoryName: categoriesTable.name,
+        creatorName: usersTable.name,
+        courseLanguage: coursesTable.courseLanguage,
+        level: coursesTable.level,
+        lessonCount: sql<number>`(
+          SELECT COUNT(*)::int
+          FROM ${courseSectionsTable}
+          INNER JOIN ${courseContentsTable}
+            ON ${courseContentsTable.sectionId} = ${courseSectionsTable.id}
+          WHERE ${courseSectionsTable.courseId} = ${coursesTable.id}
+        )`.as("lesson_count"),
+        sectionCount: sql<number>`(
+          SELECT COUNT(*)::int
+          FROM ${courseSectionsTable}
+          WHERE ${courseSectionsTable.courseId} = ${coursesTable.id}
+        )`.as("section_count"),
+      })
+      .from(cartTable)
+      .innerJoin(coursesTable, eq(cartTable.courseId, coursesTable.id))
+      .innerJoin(usersTable, eq(coursesTable.createdBy, usersTable.id))
+      .leftJoin(categoriesTable, eq(coursesTable.categoryId, categoriesTable.id))
+      .where(eq(cartTable.userId, userId))
+      .orderBy(asc(coursesTable.createdAt));
+
+    const items = await Promise.all(cartCourses.map(async (course) => {
+      const thumbnailUrl = course.thumbnailUrl
+        ? await createPresignedDownloadUrl({ key: course.thumbnailUrl, expiresIn: 900 })
+        : null;
+
+      return {
+        ...course,
+        title: course.title ?? "Untitled Course",
+        thumbnailUrl,
+        lessonCount: Number(course.lessonCount),
+        sectionCount: Number(course.sectionCount),
+      };
+    }));
+
+    return res.status(200).json({ success: true, data: items });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/** Adds a published course to the current student's persistent cart. */
+export const addCourseToCart = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Authentication required." });
+  }
+
+  const result = PurchaseCourseSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ success: false, message: "Validation failed.", errors: result.error.flatten() });
+  }
+
+  const { courseId } = result.data;
+
+  try {
+    const [course] = await db
+      .select({ id: coursesTable.id })
+      .from(coursesTable)
+      .where(and(eq(coursesTable.id, courseId), eq(coursesTable.status, "published")))
+      .limit(1);
+
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Published course not found." });
+    }
+
+    const [existingPurchase] = await db
+      .select({ id: coursePurchaseTable.id })
+      .from(coursePurchaseTable)
+      .where(and(eq(coursePurchaseTable.userId, userId), eq(coursePurchaseTable.courseId, courseId)))
+      .limit(1);
+
+    if (existingPurchase) {
+      return res.status(409).json({ success: false, message: "You already own this course." });
+    }
+
+    await db.insert(cartTable).values({ userId, courseId }).onConflictDoNothing();
+
+    return res.status(200).json({ success: true, message: "Course added to cart." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/** Removes one course from the current student's cart. */
+export const removeCourseFromCart = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Authentication required." });
+  }
+
+  const result = ParamSchema.safeParse(req.params);
+  if (!result.success) {
+    return res.status(400).json({ success: false, message: "Invalid course ID.", errors: result.error.flatten() });
+  }
+
+  try {
+    await db.delete(cartTable).where(and(eq(cartTable.userId, userId), eq(cartTable.courseId, result.data.courseId)));
+    return res.status(200).json({ success: true, message: "Course removed from cart." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/** Clears all cart items belonging to the current student. */
+export const clearCourseCart = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Authentication required." });
+  }
+
+  try {
+    await db.delete(cartTable).where(eq(cartTable.userId, userId));
+    return res.status(200).json({ success: true, message: "Cart cleared." });
   } catch (error) {
     return next(error);
   }

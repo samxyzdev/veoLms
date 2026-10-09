@@ -1,13 +1,6 @@
 // app/routes/admin/components/courses/content/ContentTypeSelector.tsx
 
-import {
-  ClipboardCheck,
-  Code2,
-  FileDown,
-  FileText,
-  ListChecks,
-  Video,
-} from "lucide-react";
+import { FileDown, FileText, Video } from "lucide-react";
 
 import type { LessonType } from "./types";
 
@@ -23,33 +16,20 @@ export const contentTypes = [
     icon: FileText,
   },
   {
-    id: "quiz" as LessonType,
-    label: "Quiz",
-    icon: ListChecks,
-  },
-  {
-    id: "assignment" as LessonType,
-    label: "Assignment",
-    icon: ClipboardCheck,
-  },
-  {
-    id: "file" as LessonType,
+    id: "resource" as LessonType,
     label: "File / Download",
     icon: FileDown,
-  },
-  {
-    id: "code" as LessonType,
-    label: "Code Example",
-    icon: Code2,
   },
 ];
 
 export function ContentTypeSelector({
   value,
   onChange,
+  disabled = false,
 }: {
   value: LessonType;
   onChange: (value: LessonType) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="border-b border-slate-100 p-3 lg:border-b-0 lg:border-r">
@@ -67,6 +47,7 @@ export function ContentTypeSelector({
               key={item.id}
               type="button"
               onClick={() => onChange(item.id)}
+              disabled={disabled}
               className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition ${
                 active
                   ? "bg-violet-50 text-violet-700"

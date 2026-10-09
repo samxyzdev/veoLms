@@ -1,6 +1,7 @@
 import { CalendarDays, ChevronDown } from "lucide-react";
 
 import { HeaderNotifications } from "./HeaderNotifications";
+import { HeaderCart } from "./HeaderCart";
 import { HeaderProfile } from "./HeaderProfile";
 import { HeaderSearch } from "./HeaderSearch";
 
@@ -31,6 +32,7 @@ export function Header({ user, mode, searchPlaceholder }: HeaderProps) {
             <ChevronDown size={14} className="text-slate-400" />
           </button> */}
           {/* Notifications */}
+          {mode === "student" && <HeaderCart />}
           <HeaderNotifications />
           {/* Profile */}
           <HeaderProfile user={user} mode={mode} />

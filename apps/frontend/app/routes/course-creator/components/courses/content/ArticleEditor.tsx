@@ -5,9 +5,11 @@ import type { Lesson } from "./types";
 export function ArticleEditor({
   lesson,
   onChange,
+  disabled = false,
 }: {
   lesson: Lesson;
   onChange: <K extends keyof Lesson>(key: K, value: Lesson[K]) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -22,6 +24,7 @@ export function ArticleEditor({
       <textarea
         rows={12}
         value={lesson.description}
+        disabled={disabled}
         onChange={(e) => onChange("description", e.target.value)}
         placeholder="Start writing your lesson..."
         className="mt-5 w-full resize-none rounded-xl border border-slate-200 p-4 text-sm leading-7 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"

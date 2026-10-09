@@ -4,11 +4,8 @@ import { Save, Video } from "lucide-react";
 import { useState } from "react";
 
 import { ArticleEditor } from "./ArticleEditor";
-import { AssignmentEditor } from "./AssignmentEditor";
-import { CodeEditor } from "./CodeEditor";
 import { ContentTypeSelector } from "./ContentTypeSelector";
-import { FileEditor } from "./FileEditor";
-import { QuizEditor } from "./QuizEditor";
+import { ResourceLessonEditor } from "./ResourceLessonEditor";
 import { VideoLessonEditor } from "./VideoLessonEditor";
 
 import type { Lesson } from "./types";
@@ -17,18 +14,41 @@ export function LessonEditor({
   lesson,
   onSave,
   onClose,
+  disabled = false,
 }: {
   lesson: Lesson;
   onSave: (lesson: Lesson) => void;
   onClose: () => void;
+  disabled?: boolean;
 }) {
-  const [draft, setDraft] = useState<Lesson>(lesson);
+  const [draft, setDraft] = useState<Lesson>(() => ({
+    ...lesson,
+    videoUrl: lesson.videoUrl ?? (lesson.type === "video" ? lesson.contentUrl ?? "" : ""),
+    description: lesson.type === "article" ? lesson.description || lesson.contentUrl || "" : lesson.description,
+    resourceUrl: lesson.resourceUrl ?? (lesson.type === "resource" ? lesson.contentUrl ?? "" : ""),
+  }));
 
   function updateDraft<K extends keyof Lesson>(key: K, value: Lesson[K]) {
-    setDraft((current) => ({
-      ...current,
-      [key]: value,
-    }));
+    setDraft((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "videoUrl" && current.type === "video") next.contentUrl = value as string;
+      if (key === "description" && current.type === "article") next.contentUrl = value as string;
+      if (key === "resourceUrl" && current.type === "resource") next.contentUrl = value as string;
+      return next;
+    });
+  }
+
+  function changeContentType(type: Lesson["type"]) {
+    setDraft((current) => {
+      const contentUrl = type === "video"
+        ? current.videoUrl ?? ""
+        : type === "article"
+          ? current.description
+          : type === "resource"
+            ? current.resourceUrl ?? ""
+            : "";
+      return { ...current, type, contentUrl };
+    });
   }
 
   return (
@@ -44,6 +64,7 @@ export function LessonEditor({
             type="text"
             value={draft.title}
             onChange={(e) => updateDraft("title", e.target.value)}
+            disabled={disabled}
             className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-sm font-medium outline-none focus:border-violet-400"
           />
         </div>
@@ -52,6 +73,7 @@ export function LessonEditor({
           <button
             type="button"
             onClick={onClose}
+            disabled={disabled}
             className="h-9 rounded-lg px-4 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             Cancel
@@ -60,6 +82,7 @@ export function LessonEditor({
           <button
             type="button"
             onClick={() => onSave(draft)}
+            disabled={disabled}
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-700"
           >
             <Save className="h-4 w-4" />
@@ -71,27 +94,20 @@ export function LessonEditor({
       <div className="grid grid-cols-1 lg:grid-cols-[150px_minmax(0,1fr)]">
         <ContentTypeSelector
           value={draft.type}
-          onChange={(type) => updateDraft("type", type)}
+          onChange={changeContentType}
+          disabled={disabled}
         />
 
         <div className="p-4 lg:p-5">
           {draft.type === "video" && (
-            <VideoLessonEditor lesson={draft} onChange={updateDraft} />
+            <VideoLessonEditor lesson={draft} onChange={updateDraft} disabled={disabled} />
           )}
 
           {draft.type === "article" && (
-            <ArticleEditor lesson={draft} onChange={updateDraft} />
+            <ArticleEditor lesson={draft} onChange={updateDraft} disabled={disabled} />
           )}
 
-          {draft.type === "quiz" && <QuizEditor />}
-
-          {draft.type === "assignment" && (
-            <AssignmentEditor lesson={draft} onChange={updateDraft} />
-          )}
-
-          {draft.type === "file" && <FileEditor />}
-
-          {draft.type === "code" && <CodeEditor />}
+          {draft.type === "resource" && <ResourceLessonEditor lesson={draft} onChange={updateDraft} disabled={disabled} />}
         </div>
       </div>
     </div>

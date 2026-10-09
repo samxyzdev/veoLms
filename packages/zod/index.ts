@@ -289,7 +289,7 @@ export const UpdateCourseSchema = z
 
     level: courseLevelSchema.optional(),
 
-    thumbnailUrl: thumbnailSchema.optional(),
+    thumbnailUrl: thumbnailSchema.nullable().optional(),
 
     learningOutcomes: learningOutcomesSchema.optional(),
 
@@ -482,6 +482,21 @@ export const UpdateProfileSchema = z
     message: "New password must be different from current password",
     path: ["newPassword"],
   });
+
+export const ContentUpdateParamsSchema = z.strictObject({
+  sectionId: z.uuid("Invalid section ID."),
+  contentId: z.uuid("Invalid lesson ID."),
+});
+
+export const UpdateCourseContentSchema = z
+  .strictObject({
+    title: z.string().trim().min(1).max(255).optional(),
+
+    contentType: z.enum(["video", "article", "resource"]).optional(),
+
+    contentUrl: z.string().trim().min(1).max(2000).optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), "At least one field is required.");
 
 /* -------------------------------------------------------------------------- */
 /* Inferred Types                                                             */

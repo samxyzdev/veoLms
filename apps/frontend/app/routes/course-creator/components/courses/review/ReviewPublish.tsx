@@ -1,133 +1,118 @@
-// app/routes/admin/components/courses/review/ReviewPublish.tsx
+import { CheckCircle2, Pencil, Send } from "lucide-react";
+import type { ReactNode } from "react";
 
-import { CheckCircle2, ChevronLeft, Send } from "lucide-react";
-
-import { reviewCourseData } from "../../../data/reviewCourseData";
-
-import BasicInfoReview from "./BasicInfoReview";
-import CourseContentReview from "./CourseContentReview";
-import PricingAccessReview from "./PricingAccessReview";
-import CouponReview from "./CouponReview";
-import AdditionalSettingsReview from "./AdditionalSettingsReview";
-import CoursePreview from "./CoursePreview";
+type ReviewSection = {
+  id: string;
+  title: string;
+  contents?: Array<{ id: string; title: string; contentType: string }>;
+  lessons?: Array<{ id: string; title: string; type: string }>;
+};
 
 type ReviewPublishProps = {
+  title: string;
+  description: string;
+  category: string;
+  level: string;
+  language: string;
+  price: string;
+  thumbnailUrl?: string | null;
+  outcomes: string[];
+  sections: ReviewSection[];
+  isSaving?: boolean;
+  isPublishing?: boolean;
+  publishError?: string | null;
   onPrevious?: () => void;
   onPublish?: () => void;
   onSaveDraft?: () => void;
-
   onEditBasicInfo?: () => void;
   onEditContent?: () => void;
   onEditPricing?: () => void;
-  onEditCoupons?: () => void;
-  onEditSettings?: () => void;
 };
 
+function ReviewCard({ title, onEdit, children }: { title: string; onEdit?: () => void; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="font-semibold text-slate-900">{title}</h3>
+        {onEdit && <button type="button" onClick={onEdit} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 hover:text-violet-700"><Pencil className="h-3.5 w-3.5" /> Edit</button>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default function ReviewPublish({
+  title,
+  description,
+  category,
+  level,
+  language,
+  price,
+  thumbnailUrl,
+  outcomes,
+  sections,
+  isSaving = false,
+  isPublishing = false,
+  publishError,
   onPrevious,
   onPublish,
   onSaveDraft,
   onEditBasicInfo,
   onEditContent,
   onEditPricing,
-  onEditCoupons,
-  onEditSettings,
 }: ReviewPublishProps) {
-  const course = reviewCourseData;
+  const totalLessons = sections.reduce((total, section) => total + (section.contents?.length ?? section.lessons?.length ?? 0), 0);
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-[#101537]">
-            Review & Publish
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Review your course details, content, and settings before publishing.
-          </p>
+          <h2 className="text-2xl font-bold tracking-tight text-[#101537]">Review & Publish</h2>
+          <p className="mt-1 text-sm text-slate-500">Confirm the details saved for this course before publishing.</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            Save Draft
-          </button>
-
-          <button
-            type="button"
-            onClick={onPublish}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
-          >
-            <Send className="h-4 w-4" />
-            Publish Course
-          </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={onSaveDraft} disabled={isSaving || isPublishing} className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Save Draft</button>
+          <button type="button" onClick={onPublish} disabled={isSaving || isPublishing} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"><Send className="h-4 w-4" />{isPublishing ? "Publishing…" : "Publish Course"}</button>
         </div>
       </div>
 
-      {/* Main */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]">
-        {/* Left */}
-        <div className="space-y-4">
-          <BasicInfoReview course={course} onEdit={onEditBasicInfo} />
-
-          <CourseContentReview course={course} onEdit={onEditContent} />
-
-          <PricingAccessReview course={course} onEdit={onEditPricing} />
-
-          <CouponReview course={course} onEdit={onEditCoupons} />
-
-          <AdditionalSettingsReview course={course} onEdit={onEditSettings} />
-
-          {/* Ready */}
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-
-              <div>
-                <p className="text-sm font-semibold text-emerald-800">
-                  Your course is ready to publish
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-emerald-700">
-                  All required course information has been completed. Review
-                  everything once and publish your course.
-                </p>
-              </div>
+      <div className="space-y-4">
+        {publishError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{publishError}</div>}
+        <ReviewCard title="Course details" onEdit={onEditBasicInfo}>
+          <div className="flex gap-4">
+            {thumbnailUrl && <img src={thumbnailUrl} alt="Course thumbnail" className="h-20 w-36 rounded-lg object-cover" />}
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-900">{title || "Untitled course"}</p>
+              <p className="mt-1 text-sm text-slate-600">{description || "No description added"}</p>
+              <p className="mt-2 text-xs text-slate-500">{[category, level, language].filter(Boolean).join(" · ") || "Course category, level, and language not set"}</p>
             </div>
           </div>
-        </div>
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Students will learn</p>
+            {outcomes.filter(Boolean).length ? <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">{outcomes.filter(Boolean).map((outcome, index) => <li key={`${outcome}-${index}`}>{outcome}</li>)}</ul> : <p className="text-sm text-slate-500">No learning outcomes added.</p>}
+          </div>
+        </ReviewCard>
 
-        {/* Right */}
-        <div className="xl:sticky xl:top-5 xl:self-start">
-          <CoursePreview course={course} />
+        <ReviewCard title={`Course content · ${sections.length} sections · ${totalLessons} lessons`} onEdit={onEditContent}>
+          {sections.length ? <ol className="space-y-3">{sections.map((section, index) => {
+            const lessons = section.contents ?? section.lessons ?? [];
+            return <li key={section.id} className="rounded-lg bg-slate-50 px-4 py-3"><p className="text-sm font-semibold text-slate-800">{index + 1}. {section.title} <span className="font-normal text-slate-500">· {lessons.length} lessons</span></p>{lessons.length > 0 && <ul className="mt-2 space-y-1 pl-4 text-xs text-slate-600">{lessons.map((lesson) => <li key={lesson.id}>{lesson.title} · {"contentType" in lesson ? lesson.contentType : lesson.type}</li>)}</ul>}</li>;
+          })}</ol> : <p className="text-sm text-slate-500">No sections added yet.</p>}
+        </ReviewCard>
+
+        <ReviewCard title="Pricing" onEdit={onEditPricing}>
+          <p className="text-lg font-semibold text-slate-900">{Number(price || 0) === 0 ? "Free" : `₹${Number(price).toLocaleString("en-IN")}`}</p>
+        </ReviewCard>
+
+        <div className="flex items-start gap-3 rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm text-violet-800">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>Publishing makes this course available to students. The server will check that required course details and content are saved.</p>
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      {/* <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
-        <button
-          type="button"
-          onClick={onPrevious}
-          className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Previous
-        </button>
-
-        <button
-          type="button"
-          onClick={onPublish}
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-700"
-        >
-          <Send className="h-4 w-4" />
-          Publish Course
-        </button>
-      </div> */}
+      <div className="mt-6 flex justify-start border-t border-slate-100 pt-5">
+        <button type="button" onClick={onPrevious} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-600 hover:bg-slate-50">Back</button>
+      </div>
     </div>
   );
 }
