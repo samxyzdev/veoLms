@@ -529,8 +529,15 @@ export const getCoursePlayer = async (req: Request, res: Response, next: NextFun
     /* Build sections with contents                                           */
     /* ---------------------------------------------------------------------- */
 
+    const playableContentRows = await Promise.all(contentRows.map(async (content) => ({
+      ...content,
+      contentUrl: content.contentType === "video" && content.contentUrl?.startsWith(`courses/${courseId}/videos/`)
+        ? await createPresignedDownloadUrl({ key: content.contentUrl, expiresIn: 14400 })
+        : content.contentUrl,
+    })));
+
     const sections = sectionRows.map((section) => {
-      const contents = contentRows
+      const contents = playableContentRows
         .filter((content) => content.sectionId === section.id)
         .map((content) => {
           const progress = progressByContent.get(content.id);

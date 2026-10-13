@@ -1,4 +1,4 @@
-import { isAxiosError } from "axios";
+import axios, { isAxiosError } from "axios";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
@@ -75,12 +75,17 @@ function isPersistedLessonType(value: LessonType): value is PersistedLessonType 
   return value === "video" || value === "article" || value === "resource";
 }
 
+function isCourseVideoKey(value: string, courseId: string) {
+  return value.startsWith(`courses/${courseId}/videos/`);
+}
+
 export default function CourseContent({ courseId, sections: backendSections, onSectionsChange, disabled = false }: CourseContentProps) {
   const [sections, setSections] = useState<Section[]>(() => mapSections(backendSections));
   const [openSections, setOpenSections] = useState<string[]>(() => backendSections.map((section) => section.id));
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [isAddingSection, setIsAddingSection] = useState(false);
   const [busyAction, setBusyAction] = useState(false);
+  const [busyActionLabel, setBusyActionLabel] = useState("Saving course content…");
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -212,7 +217,7 @@ export default function CourseContent({ courseId, sections: backendSections, onS
     if (!isPersistedLessonType(updatedLesson.type)) return showError(new Error("Choose a supported lesson type."), "Choose a supported lesson type.");
     if (!contentUrl) return showError(new Error("Lesson content is required."), "Lesson content is required.");
     if (contentUrl.length > 2000) return showError(new Error("Lesson content must be 2,000 characters or fewer."), "Lesson content must be 2,000 characters or fewer.");
-    if (updatedLesson.type !== "article") {
+    if (updatedLesson.type !== "article" && !(updatedLesson.type === "video" && isCourseVideoKey(contentUrl, courseId))) {
       try { requireHttpUrl(contentUrl, updatedLesson.type === "video" ? "Video URL" : "Resource URL"); }
       catch (error) { return showError(error, "Enter a valid URL."); }
     }
@@ -234,6 +239,40 @@ export default function CourseContent({ courseId, sections: backendSections, onS
     } catch (error) {
       showError(error, "Could not save lesson.");
     } finally {
+      setBusyAction(false);
+    }
+  }
+
+  async function uploadVideo(file: File, onProgress: (progress: number) => void) {
+    setBusyAction(true);
+    setBusyActionLabel("Uploading video to storage…");
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      const response = await api.post(`${COURSE_API_PREFIX}/${courseId}/videos/presign`, {
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+      });
+      const upload = response.data?.data;
+      if (!upload?.uploadUrl || typeof upload.uploadUrl !== "string" || !upload?.key || typeof upload.key !== "string") {
+        throw new Error("The server did not return the video upload details.");
+      }
+
+      await axios.put(upload.uploadUrl, file, {
+        headers: { "Content-Type": file.type },
+        withCredentials: false,
+        onUploadProgress: (event) => {
+          const total = event.total ?? file.size;
+          if (total > 0) onProgress(Math.round((event.loaded / total) * 100));
+        },
+      });
+      onProgress(100);
+      return upload.key as string;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Could not upload video."));
+    } finally {
+      setBusyActionLabel("Saving course content…");
       setBusyAction(false);
     }
   }
@@ -299,10 +338,10 @@ export default function CourseContent({ courseId, sections: backendSections, onS
 
       {actionError && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
       {actionMessage && <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{actionMessage}</p>}
-      {busyAction && <p role="status" className="mb-3 text-sm text-slate-500">Saving course content…</p>}
+      {busyAction && <p role="status" className="mb-3 text-sm text-slate-500">{busyActionLabel}</p>}
 
       <div className="space-y-4">
-        {sections.map((section) => <SectionItem key={String(section.id)} section={section} isOpen={openSections.includes(String(section.id))} activeLessonId={activeLessonId} onToggle={() => toggleSection(String(section.id))} onRename={() => void renameSection(String(section.id))} onDelete={() => void deleteSection(String(section.id))} onDuplicate={() => void duplicateSection(String(section.id))} onAddLesson={() => addLesson(String(section.id))} onOpenLesson={openLesson} onDeleteLesson={(lessonId) => void deleteLesson(lessonId)} onDuplicateLesson={(lessonId) => void duplicateLesson(lessonId)} onSaveLesson={(lesson) => void saveLesson(lesson)} disabled={disabled || busyAction} />)}
+        {sections.map((section) => <SectionItem key={String(section.id)} section={section} isOpen={openSections.includes(String(section.id))} activeLessonId={activeLessonId} onToggle={() => toggleSection(String(section.id))} onRename={() => void renameSection(String(section.id))} onDelete={() => void deleteSection(String(section.id))} onDuplicate={() => void duplicateSection(String(section.id))} onAddLesson={() => addLesson(String(section.id))} onOpenLesson={openLesson} onDeleteLesson={(lessonId) => void deleteLesson(lessonId)} onDuplicateLesson={(lessonId) => void duplicateLesson(lessonId)} onSaveLesson={(lesson) => void saveLesson(lesson)} onUploadVideo={uploadVideo} disabled={disabled || busyAction} />)}
       </div>
 
       {sections.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-6 py-10 text-center"><p className="text-sm font-medium text-slate-700">No sections yet.</p><p className="mt-1 text-sm text-slate-400">Start building your course by adding a section.</p></div>}

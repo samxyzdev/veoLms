@@ -18,6 +18,7 @@ export function SectionItem({
   onDeleteLesson,
   onDuplicateLesson,
   onSaveLesson,
+  onUploadVideo,
   disabled = false,
 }: {
   section: Section;
@@ -39,6 +40,7 @@ export function SectionItem({
   onDuplicateLesson: (lessonId: string) => void;
 
   onSaveLesson: (lesson: Lesson) => void;
+  onUploadVideo: (file: File, onProgress: (progress: number) => void) => Promise<string>;
   disabled?: boolean;
 }) {
   return (
@@ -102,7 +104,7 @@ export function SectionItem({
                   </button>
 
                   {/* Editor */}
-                  {isActive && <LessonEditor lesson={lesson} onSave={onSaveLesson} onClose={() => onOpenLesson(String(lesson.id))} disabled={disabled} />}
+                  {isActive && <LessonEditor lesson={lesson} onSave={onSaveLesson} onUploadVideo={onUploadVideo} onClose={() => onOpenLesson(String(lesson.id))} disabled={disabled} />}
 
                   {/* Actions */}
                   {!isActive && (

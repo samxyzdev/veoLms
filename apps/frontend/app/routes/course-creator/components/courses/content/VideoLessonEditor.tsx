@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import { Play, Upload, Video } from "lucide-react";
+import { CheckCircle2, Play, Upload, Video } from "lucide-react";
 
 import type { Lesson } from "./types";
 
@@ -18,8 +18,16 @@ function Toggle({ checked, onChange, disabled = false }: { checked: boolean; onC
   );
 }
 
-export function VideoLessonEditor({ lesson, onChange, disabled = false }: { lesson: Lesson; onChange: <K extends keyof Lesson>(key: K, value: Lesson[K]) => void; disabled?: boolean }) {
-  const [source, setSource] = useState<"upload" | "url">(lesson.videoUrl ? "url" : "upload");
+function isUploadedVideo(value?: string) {
+  return Boolean(value?.startsWith("courses/") && value.includes("/videos/"));
+}
+
+export function VideoLessonEditor({ lesson, onChange, onUploadVideo, disabled = false }: { lesson: Lesson; onChange: <K extends keyof Lesson>(key: K, value: Lesson[K]) => void; onUploadVideo: (file: File, onProgress: (progress: number) => void) => Promise<string>; disabled?: boolean }) {
+  const [source, setSource] = useState<"upload" | "url">(lesson.videoUrl && !isUploadedVideo(lesson.videoUrl) ? "url" : "upload");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState("");
 
   useEffect(() => {
     const previewUrl = lesson.videoFile;
@@ -28,9 +36,10 @@ export function VideoLessonEditor({ lesson, onChange, disabled = false }: { less
     };
   }, [lesson.videoFile]);
 
-  function handleVideoUpload(event: ChangeEvent<HTMLInputElement>) {
+  async function handleVideoUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    event.currentTarget.value = "";
     if (file.size > 2 * 1024 * 1024 * 1024) {
       window.alert("Maximum video size is 2GB.");
       event.target.value = "";
@@ -44,14 +53,28 @@ export function VideoLessonEditor({ lesson, onChange, disabled = false }: { less
     }
 
     if (lesson.videoFile?.startsWith("blob:")) URL.revokeObjectURL(lesson.videoFile);
-    onChange("videoFile", URL.createObjectURL(file));
+    const previewUrl = URL.createObjectURL(file);
+    onChange("videoFile", previewUrl);
+    setSelectedFileName(file.name);
+    setUploadProgress(0);
+    setUploadError(null);
+    setIsUploading(true);
+    try {
+      const key = await onUploadVideo(file, setUploadProgress);
+      onChange("videoUrl", key);
+      setUploadProgress(100);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Could not upload video.");
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   return (
     <div>
       <div className="mb-4">
         <h3 className="text-base font-semibold text-slate-900">Upload Video Content</h3>
-        <p className="mt-1 text-xs text-slate-500">Add a video URL or select a file to preview it.</p>
+        <p className="mt-1 text-xs text-slate-500">Upload a video directly to secure storage or add an external video URL.</p>
       </div>
 
       <div className="mb-4 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
@@ -66,9 +89,9 @@ export function VideoLessonEditor({ lesson, onChange, disabled = false }: { less
       {source === "upload" ? (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <label className={`flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-5 text-center ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-violet-400"}`}>
-            <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" onChange={handleVideoUpload} disabled={disabled} className="hidden" />
+            <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" onChange={(event) => void handleVideoUpload(event)} disabled={disabled} className="hidden" />
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600"><Upload className="h-5 w-5" /></div>
-            <p className="text-sm font-semibold text-slate-700">Click to upload or drag and drop</p>
+            <p className="text-sm font-semibold text-slate-700">Click to upload a video</p>
             <p className="mt-1 text-xs text-slate-400">MP4, MOV, AVI, WebM (Max 2GB)</p>
             <p className="mt-1 text-xs text-slate-400">Recommended: 1080p</p>
           </label>
@@ -86,13 +109,24 @@ export function VideoLessonEditor({ lesson, onChange, disabled = false }: { less
                 </>
               )}
             </div>
-            <p className="mt-2 text-xs text-amber-700">Selected files are local previews. Add a video URL to save lesson content.</p>
+            {selectedFileName && <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3" role="status" aria-live="polite">
+              <div className="flex items-center justify-between gap-3">
+                <p className="truncate text-xs font-medium text-slate-700">{isUploading ? `Uploading ${selectedFileName}` : uploadError ? selectedFileName : `Uploaded ${selectedFileName}`}</p>
+                {!isUploading && !uploadError && uploadProgress === 100 && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />}
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Video upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress}>
+                <div className="h-full rounded-full bg-violet-600 transition-[width]" style={{ width: `${uploadProgress}%` }} />
+              </div>
+              <p className="mt-1 text-right text-[11px] text-slate-500">{uploadProgress}%</p>
+              {uploadError && <p role="alert" className="mt-1 text-xs text-red-600">{uploadError}</p>}
+            </div>}
+            {!selectedFileName && isUploadedVideo(lesson.videoUrl) && <p className="mt-2 text-xs font-medium text-emerald-700">A video is uploaded for this lesson. Choose another file to replace it.</p>}
           </div>
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 p-4">
           <label className="mb-2 block text-sm font-medium text-slate-900">Video URL</label>
-          <input type="url" value={lesson.videoUrl ?? ""} onChange={(event) => onChange("videoUrl", event.target.value)} disabled={disabled} placeholder="https://youtube.com/watch?v=..." className="h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-violet-400 disabled:bg-slate-50" />
+          <input type="url" value={isUploadedVideo(lesson.videoUrl) ? "" : lesson.videoUrl ?? ""} onChange={(event) => onChange("videoUrl", event.target.value)} disabled={disabled} placeholder="https://youtube.com/watch?v=..." className="h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-violet-400 disabled:bg-slate-50" />
         </div>
       )}
 

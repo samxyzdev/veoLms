@@ -23,7 +23,7 @@ import {
   deleteCourseSection,
   deleteCourseContent,
 } from "../controllers/courseCreatorCourseController";
-import { createCourseThumbnailUploadUrl } from "../controllers/courseCreatorUploadController";
+import { createCourseThumbnailUploadUrl, createCourseVideoUploadUrl } from "../controllers/courseCreatorUploadController";
 
 export const courseCreatorCourseRoutes = Router();
 
@@ -48,6 +48,7 @@ courseCreatorCourseRoutes.patch("/sections/:sectionId/contents/:contentId", upda
 courseCreatorCourseRoutes.delete("/sections/:sectionId/contents/:contentId", deleteCourseContent);
 //  VIDEO
 courseCreatorCourseRoutes.post("/:courseId/videos", addCourseVideo);
+courseCreatorCourseRoutes.post("/:courseId/videos/presign", createCourseVideoUploadUrl);
 // THUMBNAIL
 courseCreatorCourseRoutes.post("/:courseId/thumbnail/presign", createCourseThumbnailUploadUrl);
 // COURSE

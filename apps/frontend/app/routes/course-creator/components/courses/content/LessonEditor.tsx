@@ -13,11 +13,13 @@ import type { Lesson } from "./types";
 export function LessonEditor({
   lesson,
   onSave,
+  onUploadVideo,
   onClose,
   disabled = false,
 }: {
   lesson: Lesson;
   onSave: (lesson: Lesson) => void;
+  onUploadVideo: (file: File, onProgress: (progress: number) => void) => Promise<string>;
   onClose: () => void;
   disabled?: boolean;
 }) {
@@ -100,7 +102,7 @@ export function LessonEditor({
 
         <div className="p-4 lg:p-5">
           {draft.type === "video" && (
-            <VideoLessonEditor lesson={draft} onChange={updateDraft} disabled={disabled} />
+            <VideoLessonEditor lesson={draft} onChange={updateDraft} onUploadVideo={onUploadVideo} disabled={disabled} />
           )}
 
           {draft.type === "article" && (

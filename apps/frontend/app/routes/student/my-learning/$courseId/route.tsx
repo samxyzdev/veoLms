@@ -102,9 +102,12 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs): Promise<
       throw redirect(`/dashboard/explore-courses/${courseId}`);
     }
 
+    const playerResult = await api.get(`/student/courses/${courseId}/player`);
+    const playerCourse = playerResult.data?.data?.course as { sections?: CourseDetailResponse["sections"] } | undefined;
+
     const purchasedCourses = (purchasedResult?.data?.data ?? []) as PurchasedCourseResponse[];
     const enrollment = purchasedCourses.find((item) => item.courseId === courseId);
-    const orderedSections = [...(detail.sections ?? [])].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+    const orderedSections = [...(playerCourse?.sections ?? detail.sections ?? [])].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
     const totalLessons = orderedSections.reduce((total, section) => total + (section.contents?.length ?? 0), 0);
     const completedLessons = Math.min(
       totalLessons,
