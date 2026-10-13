@@ -57,13 +57,7 @@ function getLevelLabel(level: string | null) {
   return level?.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) ?? "Course lesson";
 }
 
-function normalizeLesson(
-  lesson: CourseLessonResponse,
-  section: CourseDetailResponse["sections"][number],
-  sectionNumber: number,
-  lessonNumber: number,
-  completedCount: number,
-): PlayerLesson {
+function normalizeLesson(lesson: CourseLessonResponse, section: CourseDetailResponse["sections"][number], sectionNumber: number, lessonNumber: number, completedCount: number): PlayerLesson {
   return {
     id: lesson.id,
     title: lesson.title?.trim() || "Untitled lesson",
@@ -87,10 +81,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs): Promise<
   }
 
   try {
-    const [courseResult, purchasedResult] = await Promise.all([
-      api.get(`/student/courses/${courseId}`),
-      api.get("/student/courses/purchased-courses").catch(() => null),
-    ]);
+    const [courseResult, purchasedResult] = await Promise.all([api.get(`/student/courses/${courseId}`), api.get("/student/courses/purchased-courses").catch(() => null)]);
 
     const detail = courseResult.data?.data as CourseDetailResponse | undefined;
 
@@ -109,10 +100,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs): Promise<
     const enrollment = purchasedCourses.find((item) => item.courseId === courseId);
     const orderedSections = [...(playerCourse?.sections ?? detail.sections ?? [])].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
     const totalLessons = orderedSections.reduce((total, section) => total + (section.contents?.length ?? 0), 0);
-    const completedLessons = Math.min(
-      totalLessons,
-      Math.max(0, enrollment?.completedLessons ?? Math.round((Number(enrollment?.progress) || 0) * totalLessons / 100)),
-    );
+    const completedLessons = Math.min(totalLessons, Math.max(0, enrollment?.completedLessons ?? Math.round(((Number(enrollment?.progress) || 0) * totalLessons) / 100)));
 
     let lessonNumber = 0;
     const sections = orderedSections.map((section, sectionIndex) => ({
@@ -132,9 +120,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs): Promise<
     const suggestedLesson = nextLesson ? lessons.find((lesson) => lesson.title.toLowerCase() === nextLesson.toLowerCase()) : undefined;
     const currentLesson = suggestedLesson ?? lessons[completedLessons] ?? lessons.at(-1) ?? null;
     const rawOutcomes = detail.learningOutcomes ?? [];
-    const learningOutcomes = rawOutcomes
-      .map((outcome) => (typeof outcome === "string" ? outcome : outcome.text))
-      .filter(Boolean);
+    const learningOutcomes = rawOutcomes.map((outcome) => (typeof outcome === "string" ? outcome : outcome.text)).filter(Boolean);
     const percentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
     return {
@@ -189,15 +175,14 @@ export function HydrateFallback() {
 export default function CoursePlayerPage({ loaderData }: Route.ComponentProps) {
   const data = loaderData;
   const [selectedLessonId, setSelectedLessonId] = useState(data.currentLessonId);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
   const selectedIndex = data.lessons.findIndex((lesson) => lesson.id === selectedLessonId);
   const currentIndex = Math.max(0, selectedIndex);
   const currentLesson = data.lessons[currentIndex] ?? null;
 
   const activeResources = useMemo(() => {
     if (!currentLesson) return [];
-    return currentLesson.contentType === "resource" && currentLesson.contentUrl
-      ? [{ id: currentLesson.id, title: currentLesson.title, url: currentLesson.contentUrl, type: "Resource" }]
-      : [];
+    return currentLesson.contentType === "resource" && currentLesson.contentUrl ? [{ id: currentLesson.id, title: currentLesson.title, url: currentLesson.contentUrl, type: "Resource" }] : [];
   }, [currentLesson]);
 
   function selectLesson(lessonId: string) {
@@ -206,29 +191,22 @@ export default function CoursePlayerPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="min-w-0">
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(360px,0.92fr)]">
+      <div className={`grid min-w-0 gap-5 ${isTheaterMode ? "xl:grid-cols-1" : "xl:grid-cols-[minmax(0,1.8fr)_minmax(360px,0.92fr)]"}`}>
         <main className="min-w-0">
-          <CoursePlayerHeader
-            categoryName={data.course.categoryName}
-            courseTitle={data.course.title}
-            lessonTitle={currentLesson?.title ?? "Course content"}
-          />
+          <CoursePlayerHeader categoryName={data.course.categoryName} courseTitle={data.course.title} lessonTitle={currentLesson?.title ?? "Course content"} />
 
           <VideoPlayer
             title={currentLesson?.title ?? data.course.title}
             video={currentLesson?.contentType === "video" ? currentLesson.contentUrl : null}
             poster={data.course.thumbnail}
             contentType={currentLesson?.contentType ?? "video"}
+            theaterMode={isTheaterMode}
+            onTheaterModeChange={setIsTheaterMode}
           />
 
           {currentLesson ? (
             <>
-              <LessonDetails
-                lesson={currentLesson}
-                lessonCount={data.lessons.length}
-                instructorName={data.course.instructorName}
-                level={data.course.level}
-              />
+              <LessonDetails lesson={currentLesson} lessonCount={data.lessons.length} instructorName={data.course.instructorName} level={data.course.level} />
 
               <LessonOverview lesson={currentLesson} outcomes={data.learningOutcomes} />
               <LessonResources resources={activeResources} />

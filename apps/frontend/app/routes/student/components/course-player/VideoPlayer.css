@@ -1,0 +1,27 @@
+.course-video-player-shell {
+  --video-bg: #000;
+  --video-brand: #f00;
+  --video-border-radius: 0.75rem;
+  --video-border: 0;
+  --media-slider-track-fill-bg: #f00;
+  --media-slider-track-bg: rgb(255 255 255 / 35%);
+  --media-slider-thumb-bg: #f00;
+  --media-slider-thumb-border: 0;
+  --media-controls-padding: 0.25rem;
+  --media-focus-ring-color: #fff;
+}
+
+.course-video-player-shell .vds-time-slider {
+  --media-slider-track-height: 0.15rem;
+  --media-slider-focused-track-height: 0.3rem;
+  --media-slider-thumb-size: 0.75rem;
+  --media-slider-track-border-radius: 9999px;
+}
+
+.course-video-player-shell .vds-video-layout .vds-controls-group:last-child {
+  padding: 0 0.75rem 0.4rem;
+}
+
+.course-video-player-shell .vds-video-layout .vds-button:hover {
+  --media-button-hover-bg: rgb(255 255 255 / 14%);
+}
