@@ -6,9 +6,16 @@ import type { SidebarItem } from "./types";
 
 type SidebarNavigationProps = {
   navigation: SidebarItem[];
+  onNavigate?: () => void;
 };
 
-function SidebarNavItem({ item }: { item: SidebarItem }) {
+function SidebarNavItem({
+  item,
+  onNavigate,
+}: {
+  item: SidebarItem;
+  onNavigate?: () => void;
+}) {
   const location = useLocation();
 
   const hasChildren = Boolean(item.children?.length);
@@ -66,6 +73,7 @@ function SidebarNavItem({ item }: { item: SidebarItem }) {
                 key={child.id}
                 to={child.href}
                 end
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   [
                     "group relative flex items-center rounded-lg px-3 py-2 text-[13px] font-medium transition-all",
@@ -105,6 +113,7 @@ function SidebarNavItem({ item }: { item: SidebarItem }) {
     <NavLink
       to={item.href}
       end={item.href === "/dashboard" || item.href === "/course-creator"}
+      onClick={onNavigate}
       className={({ isActive }) =>
         [
           "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all",
@@ -131,7 +140,10 @@ function SidebarNavItem({ item }: { item: SidebarItem }) {
   );
 }
 
-export function SidebarNavigation({ navigation }: SidebarNavigationProps) {
+export function SidebarNavigation({
+  navigation,
+  onNavigate,
+}: SidebarNavigationProps) {
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-5">
       <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
@@ -140,7 +152,11 @@ export function SidebarNavigation({ navigation }: SidebarNavigationProps) {
 
       <div className="space-y-1">
         {navigation.map((item) => (
-          <SidebarNavItem key={item.id} item={item} />
+          <SidebarNavItem
+            key={item.id}
+            item={item}
+            onNavigate={onNavigate}
+          />
         ))}
       </div>
     </nav>

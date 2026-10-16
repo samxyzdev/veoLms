@@ -15,4 +15,8 @@ export type HeaderProps = {
   user: HeaderUser;
   mode: HeaderMode;
   searchPlaceholder?: string;
+  sidebarCollapsed?: boolean;
+  mobileSidebarOpen?: boolean;
+  onSidebarToggle?: () => void;
+  onMobileSidebarToggle?: () => void;
 };

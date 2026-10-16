@@ -1,9 +1,7 @@
 import axios, { isAxiosError } from "axios";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-
 import { api } from "~/lib/axios";
-
 import { SectionItem } from "./SectionItem";
 import type { Lesson, LessonType, Section } from "./types";
 
@@ -127,7 +125,7 @@ export default function CourseContent({ courseId, sections: backendSections, onS
     setActionError(null);
     try {
       await api.patch(`${COURSE_API_PREFIX}/sections/${sectionId}`, { title });
-      commit(sections.map((item) => item.id === sectionId ? { ...item, title } : item));
+      commit(sections.map((item) => (item.id === sectionId ? { ...item, title } : item)));
       setActionMessage("Section title saved.");
     } catch (error) {
       showError(error, "Could not rename section.");
@@ -184,7 +182,11 @@ export default function CourseContent({ courseId, sections: backendSections, onS
       setActionMessage("Section and saved lessons duplicated.");
     } catch (error) {
       if (createdSectionId) {
-        try { await api.delete(`${COURSE_API_PREFIX}/sections/${createdSectionId}`); } catch { /* Keep the original failure visible. */ }
+        try {
+          await api.delete(`${COURSE_API_PREFIX}/sections/${createdSectionId}`);
+        } catch {
+          /* Keep the original failure visible. */
+        }
       }
       showError(error, "Could not duplicate section.");
     } finally {
@@ -193,15 +195,15 @@ export default function CourseContent({ courseId, sections: backendSections, onS
   }
 
   function toggleSection(sectionId: string) {
-    setOpenSections((current) => current.includes(sectionId) ? current.filter((id) => id !== sectionId) : [...current, sectionId]);
+    setOpenSections((current) => (current.includes(sectionId) ? current.filter((id) => id !== sectionId) : [...current, sectionId]));
   }
 
   function addLesson(sectionId: string) {
     if (disabled || busyAction) return;
     const id = `draft:${crypto.randomUUID()}`;
     const lesson: Lesson = { id, title: "New Lesson", description: "", type: "video", duration: "", freePreview: false, downloadable: false, contentUrl: "" };
-    commit(sections.map((section) => section.id === sectionId ? { ...section, lessons: [...section.lessons, lesson] } : section));
-    setOpenSections((current) => current.includes(sectionId) ? current : [...current, sectionId]);
+    commit(sections.map((section) => (section.id === sectionId ? { ...section, lessons: [...section.lessons, lesson] } : section)));
+    setOpenSections((current) => (current.includes(sectionId) ? current : [...current, sectionId]));
     setActiveLessonId(id);
     setActionError(null);
     setActionMessage("Add lesson details and save it to the course.");
@@ -218,8 +220,11 @@ export default function CourseContent({ courseId, sections: backendSections, onS
     if (!contentUrl) return showError(new Error("Lesson content is required."), "Lesson content is required.");
     if (contentUrl.length > 2000) return showError(new Error("Lesson content must be 2,000 characters or fewer."), "Lesson content must be 2,000 characters or fewer.");
     if (updatedLesson.type !== "article" && !(updatedLesson.type === "video" && isCourseVideoKey(contentUrl, courseId))) {
-      try { requireHttpUrl(contentUrl, updatedLesson.type === "video" ? "Video URL" : "Resource URL"); }
-      catch (error) { return showError(error, "Enter a valid URL."); }
+      try {
+        requireHttpUrl(contentUrl, updatedLesson.type === "video" ? "Video URL" : "Resource URL");
+      } catch (error) {
+        return showError(error, "Enter a valid URL.");
+      }
     }
 
     setBusyAction(true);
@@ -233,7 +238,7 @@ export default function CourseContent({ courseId, sections: backendSections, onS
       const saved = response.data?.data;
       if (!saved?.id) throw new Error("Server did not return the saved lesson.");
       const lesson: Lesson = { ...updatedLesson, id: saved.id, title: saved.title, type: saved.contentType as LessonType, contentUrl: saved.contentUrl ?? contentUrl };
-      commit(sections.map((item) => ({ ...item, lessons: item.lessons.map((current) => current.id === updatedLesson.id ? lesson : current) })));
+      commit(sections.map((item) => ({ ...item, lessons: item.lessons.map((current) => (current.id === updatedLesson.id ? lesson : current)) })));
       setActiveLessonId(null);
       setActionMessage("Lesson saved.");
     } catch (error) {
@@ -305,18 +310,22 @@ export default function CourseContent({ courseId, sections: backendSections, onS
     setActionError(null);
     try {
       const response = await api.post(`${COURSE_API_PREFIX}/sections/${parent.id}/contents`, {
-        title: `${source.title} Copy`, contentType: source.type, contentUrl: source.contentUrl,
+        title: `${source.title} Copy`,
+        contentType: source.type,
+        contentUrl: source.contentUrl,
       });
       const created = response.data?.data;
       if (!created?.id) throw new Error("Server did not return the duplicated lesson.");
       const duplicate: Lesson = { ...source, id: created.id, title: created.title, type: created.contentType as LessonType };
-      commit(sections.map((section) => {
-        if (section.id !== parent.id) return section;
-        const index = section.lessons.findIndex((lesson) => lesson.id === lessonId);
-        const lessons = [...section.lessons];
-        lessons.splice(index + 1, 0, duplicate);
-        return { ...section, lessons };
-      }));
+      commit(
+        sections.map((section) => {
+          if (section.id !== parent.id) return section;
+          const index = section.lessons.findIndex((lesson) => lesson.id === lessonId);
+          const lessons = [...section.lessons];
+          lessons.splice(index + 1, 0, duplicate);
+          return { ...section, lessons };
+        }),
+      );
       setActionMessage("Lesson duplicated.");
     } catch (error) {
       showError(error, "Could not duplicate lesson.");
@@ -326,26 +335,80 @@ export default function CourseContent({ courseId, sections: backendSections, onS
   }
 
   function openLesson(lessonId: string) {
-    setActiveLessonId((current) => current === lessonId ? null : lessonId);
+    setActiveLessonId((current) => (current === lessonId ? null : lessonId));
   }
 
   return (
     <div>
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div><h2 className="text-2xl font-bold tracking-tight text-[#101537]">Course Content</h2><p className="mt-1 text-sm text-slate-500">Organize the saved lessons into sections.</p></div>
-        <button type="button" onClick={() => void addSection()} disabled={disabled || isAddingSection} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"><Plus className="h-4 w-4" />{isAddingSection ? "Creating…" : "Add Section"}</button>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-[#101537]">Course Content</h2>
+          <p className="mt-1 text-sm text-slate-500">Organize the saved lessons into sections.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void addSection()}
+          disabled={disabled || isAddingSection}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" />
+          {isAddingSection ? "Creating…" : "Add Section"}
+        </button>
       </div>
 
-      {actionError && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
-      {actionMessage && <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{actionMessage}</p>}
-      {busyAction && <p role="status" className="mb-3 text-sm text-slate-500">{busyActionLabel}</p>}
+      {actionError && (
+        <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+      {actionMessage && (
+        <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {actionMessage}
+        </p>
+      )}
+      {busyAction && (
+        <p role="status" className="mb-3 text-sm text-slate-500">
+          {busyActionLabel}
+        </p>
+      )}
 
       <div className="space-y-4">
-        {sections.map((section) => <SectionItem key={String(section.id)} section={section} isOpen={openSections.includes(String(section.id))} activeLessonId={activeLessonId} onToggle={() => toggleSection(String(section.id))} onRename={() => void renameSection(String(section.id))} onDelete={() => void deleteSection(String(section.id))} onDuplicate={() => void duplicateSection(String(section.id))} onAddLesson={() => addLesson(String(section.id))} onOpenLesson={openLesson} onDeleteLesson={(lessonId) => void deleteLesson(lessonId)} onDuplicateLesson={(lessonId) => void duplicateLesson(lessonId)} onSaveLesson={(lesson) => void saveLesson(lesson)} onUploadVideo={uploadVideo} disabled={disabled || busyAction} />)}
+        {sections.map((section) => (
+          <SectionItem
+            key={String(section.id)}
+            section={section}
+            isOpen={openSections.includes(String(section.id))}
+            activeLessonId={activeLessonId}
+            onToggle={() => toggleSection(String(section.id))}
+            onRename={() => void renameSection(String(section.id))}
+            onDelete={() => void deleteSection(String(section.id))}
+            onDuplicate={() => void duplicateSection(String(section.id))}
+            onAddLesson={() => addLesson(String(section.id))}
+            onOpenLesson={openLesson}
+            onDeleteLesson={(lessonId) => void deleteLesson(lessonId)}
+            onDuplicateLesson={(lessonId) => void duplicateLesson(lessonId)}
+            onSaveLesson={(lesson) => void saveLesson(lesson)}
+            onUploadVideo={uploadVideo}
+            disabled={disabled || busyAction}
+          />
+        ))}
       </div>
 
-      {sections.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-6 py-10 text-center"><p className="text-sm font-medium text-slate-700">No sections yet.</p><p className="mt-1 text-sm text-slate-400">Start building your course by adding a section.</p></div>}
-      <button type="button" onClick={() => void addSection()} disabled={disabled || isAddingSection} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-violet-200 bg-white text-sm font-semibold text-violet-600 hover:border-violet-400 hover:bg-violet-50 disabled:opacity-50"><Plus className="h-4 w-4" />Add Section</button>
+      {sections.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-6 py-10 text-center">
+          <p className="text-sm font-medium text-slate-700">No sections yet.</p>
+          <p className="mt-1 text-sm text-slate-400">Start building your course by adding a section.</p>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => void addSection()}
+        disabled={disabled || isAddingSection}
+        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-violet-200 bg-white text-sm font-semibold text-violet-600 hover:border-violet-400 hover:bg-violet-50 disabled:opacity-50"
+      >
+        <Plus className="h-4 w-4" />
+        Add Section
+      </button>
     </div>
   );
 }

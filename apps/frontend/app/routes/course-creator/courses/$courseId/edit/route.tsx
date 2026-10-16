@@ -6,7 +6,7 @@ import type { ChangeEvent } from "react";
 
 import { BarChart3, Check, CheckCircle2, CircleHelp, Folder, Globe, Info, Plus, Send, Trash2, Upload, X } from "lucide-react";
 
-import { redirect, useLoaderData } from "react-router";
+import { redirect, useLoaderData, useSearchParams } from "react-router";
 
 import CourseContent from "../../../components/courses/content/CourseContent";
 
@@ -218,11 +218,8 @@ function StepProgress({ currentStep, onStepChange, disabled = false }: { current
       <div className="grid grid-cols-1 md:grid-cols-4">
         {steps.map((step, index) => {
           const isActive = currentStep === step.id;
-
           const isCompleted = currentStep > step.id;
-
           const canGoBack = step.id < currentStep && !disabled;
-
           return (
             <button
               key={step.id}
@@ -349,13 +346,14 @@ export async function clientLoader({ params }: { params: Record<string, string |
 // =========================================================
 
 export default function EditCourseRoute() {
+  const [searchParams] = useSearchParams();
   const { course, learningOutcomes, categories, sections } = useLoaderData<typeof clientLoader>();
 
   // =======================================================
   // STEP
   // =======================================================
 
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(() => (searchParams.get("step") === "2" ? 2 : 1));
 
   // =======================================================
   // PREFILLED BASIC INFORMATION
@@ -370,7 +368,6 @@ export default function EditCourseRoute() {
   const [description, setDescription] = useState(course.description ?? "");
 
   const [category, setCategory] = useState(initialCategory);
-
 
   const [level, setLevel] = useState(initialLevel);
 
@@ -801,7 +798,7 @@ export default function EditCourseRoute() {
     try {
       await api.patch(`/course-creator/courses/${course.id}`, { thumbnailUrl: null });
     } catch (error) {
-      setThumbnailError(isAxiosError(error) ? error.response?.data?.message ?? "Could not remove thumbnail." : "Could not remove thumbnail.");
+      setThumbnailError(isAxiosError(error) ? (error.response?.data?.message ?? "Could not remove thumbnail.") : "Could not remove thumbnail.");
       return;
     }
 
@@ -913,7 +910,7 @@ export default function EditCourseRoute() {
 
       if (isAxiosError<{ message?: string; errors?: { missingFields?: string[] } }>(error)) {
         const missing = error.response?.data?.errors?.missingFields;
-        message = missing?.length ? `${error.response?.data?.message ?? message} Missing: ${missing.join(", ")}.` : error.response?.data?.message ?? message;
+        message = missing?.length ? `${error.response?.data?.message ?? message} Missing: ${missing.join(", ")}.` : (error.response?.data?.message ?? message);
       } else if (error instanceof Error) {
         message = error.message;
       }
@@ -1213,7 +1210,6 @@ export default function EditCourseRoute() {
 
                       {showCategoryError && <p className="mt-1.5 text-xs font-medium text-red-500">Please select a category.</p>}
                     </div>
-
                   </div>
 
                   {/* LEVEL + LANGUAGE */}
@@ -1286,20 +1282,15 @@ export default function EditCourseRoute() {
                         }`}
                       >
                         <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleThumbnailChange} disabled={isArchived || isThumbnailUploading} className="hidden" />
-
                         <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm">
                           <Upload className="h-4 w-4" />
                         </div>
-
                         <p className="text-sm font-medium text-slate-700">
                           Click to upload <span className="font-normal text-slate-400">or drag and drop</span>
                         </p>
-
                         <p className="mt-1 text-xs text-slate-400">PNG, JPG or WebP (Max 5MB)</p>
-
                         <p className="mt-0.5 text-xs text-slate-400">Recommended size: 1280 × 720px</p>
                       </label>
-
                       <CourseThumbnail title={title} preview={thumbnailPreview} onRemove={removeThumbnail} disabled={isArchived || isThumbnailUploading} />
                     </div>
 
@@ -1395,35 +1386,46 @@ export default function EditCourseRoute() {
 
               {/* STEP 2 */}
 
-              {currentStep === 2 && <>
-              {contentError && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{contentError}</div>}
-              <CourseContent courseId={course.id} sections={courseSections} disabled={isArchived} onSectionsChange={(next) => {
-                const now = new Date().toISOString();
-                const updated = next.map((section, sectionIndex) => {
-                  const existing = courseSections.find((item) => item.id === section.id);
-                  return {
-                    id: String(section.id),
-                    courseId: course.id,
-                    title: section.title,
-                    sequenceOrder: sectionIndex + 1,
-                    createdAt: existing?.createdAt ?? now,
-                    updatedAt: now,
-                    contents: section.lessons.map((lesson, lessonIndex) => ({
-                      id: String(lesson.id),
-                      sectionId: String(section.id),
-                      title: lesson.title,
-                      contentType: lesson.type,
-                      contentUrl: lesson.contentUrl ?? "",
-                      sequenceOrder: lessonIndex + 1,
-                      createdAt: existing?.contents.find((item) => item.id === lesson.id)?.createdAt ?? now,
-                      updatedAt: now,
-                    })),
-                  };
-                });
-                setCourseSections(updated);
-                if (updated.flatMap((section) => section.contents).every((content) => !content.id.startsWith("draft:") && Boolean(content.contentUrl?.trim()))) setContentError(null);
-              }} />
-              </>}
+              {currentStep === 2 && (
+                <>
+                  {contentError && (
+                    <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      {contentError}
+                    </div>
+                  )}
+                  <CourseContent
+                    courseId={course.id}
+                    sections={courseSections}
+                    disabled={isArchived}
+                    onSectionsChange={(next) => {
+                      const now = new Date().toISOString();
+                      const updated = next.map((section, sectionIndex) => {
+                        const existing = courseSections.find((item) => item.id === section.id);
+                        return {
+                          id: String(section.id),
+                          courseId: course.id,
+                          title: section.title,
+                          sequenceOrder: sectionIndex + 1,
+                          createdAt: existing?.createdAt ?? now,
+                          updatedAt: now,
+                          contents: section.lessons.map((lesson, lessonIndex) => ({
+                            id: String(lesson.id),
+                            sectionId: String(section.id),
+                            title: lesson.title,
+                            contentType: lesson.type,
+                            contentUrl: lesson.contentUrl ?? "",
+                            sequenceOrder: lessonIndex + 1,
+                            createdAt: existing?.contents.find((item) => item.id === lesson.id)?.createdAt ?? now,
+                            updatedAt: now,
+                          })),
+                        };
+                      });
+                      setCourseSections(updated);
+                      if (updated.flatMap((section) => section.contents).every((content) => !content.id.startsWith("draft:") && Boolean(content.contentUrl?.trim()))) setContentError(null);
+                    }}
+                  />
+                </>
+              )}
 
               {/* STEP 3 */}
 
@@ -1511,7 +1513,6 @@ export default function EditCourseRoute() {
 
                     <p className="mt-1 text-sm text-slate-500">This is how your course will appear to students.</p>
                   </div>
-
                 </div>
 
                 <CourseThumbnail title={title} preview={thumbnailPreview} onRemove={removeThumbnail} disabled={isArchived || isThumbnailUploading} />

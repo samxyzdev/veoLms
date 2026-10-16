@@ -20,4 +20,7 @@ export type SidebarProps = {
   logoHref?: string;
   navigation: SidebarItem[];
   footerCard?: SidebarFooterCard;
+  isCollapsed?: boolean;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 };

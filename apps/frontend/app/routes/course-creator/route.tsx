@@ -1,4 +1,5 @@
 import { Outlet, redirect } from "react-router";
+import { useState } from "react";
 import { isAxiosError } from "axios";
 
 import { Header } from "~/components/header/Header";
@@ -35,13 +36,32 @@ export function HydrateFallback() {
 
 export default function CourseCreatorLayout({ loaderData }: Route.ComponentProps) {
   const { user, stats } = loaderData;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f7f8fc]">
-      <Sidebar logoHref="/course-creator" navigation={courseCreatorSidebarData.navigation} footerCard={courseCreatorSidebarData.footerCard} />
+      <Sidebar
+        logoHref="/course-creator"
+        navigation={courseCreatorSidebarData.navigation}
+        footerCard={courseCreatorSidebarData.footerCard}
+        isCollapsed={sidebarCollapsed}
+        isMobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+      />
 
-      <main className="min-h-screen lg:ml-[250px]">
-        <Header user={user} mode="course_creator" searchPlaceholder="Search students, courses, or anything..." />
+      <main
+        className={`min-h-screen transition-[margin] duration-300 ${sidebarCollapsed ? "lg:ml-0" : "lg:ml-[250px]"}`}
+      >
+        <Header
+          user={user}
+          mode="course_creator"
+          searchPlaceholder="Search students, courses, or anything..."
+          sidebarCollapsed={sidebarCollapsed}
+          mobileSidebarOpen={mobileSidebarOpen}
+          onSidebarToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          onMobileSidebarToggle={() => setMobileSidebarOpen((open) => !open)}
+        />
 
         <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
           <Outlet

@@ -56,6 +56,8 @@ export default [
     route("courses/new", "./routes/course-creator/courses/new/route.tsx"),
     // /course-creator/courses/:courseId/edit
     route("courses/:courseId/edit", "./routes/course-creator/courses/$courseId/edit/route.tsx"),
+    // /course-creator/courses/:courseId/content
+    route("courses/:courseId/content", "./routes/course-creator/courses/$courseId/content/route.tsx"),
     // /course-creator/students
     route("students", "./routes/course-creator/students/route.tsx"),
     // /course-creator/instructors

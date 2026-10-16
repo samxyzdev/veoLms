@@ -1,4 +1,5 @@
 import { Outlet, redirect } from "react-router";
+import { useState } from "react";
 import { isAxiosError } from "axios";
 import { Header } from "~/components/header/Header";
 import { Sidebar } from "~/components/sidebar/Sidebar";
@@ -27,13 +28,31 @@ export function HydrateFallback() {
 
 export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
   const user = loaderData;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
     <CartProvider>
       <div className="min-h-screen bg-[#f7f8fc]">
-        <Sidebar navigation={studentSidebarData.navigation} footerCard={studentSidebarData.footerCard} />
-        <main className="min-h-screen lg:ml-[250px]">
-          <Header user={user} mode="student" searchPlaceholder="Search courses, lessons..." />
+        <Sidebar
+          navigation={studentSidebarData.navigation}
+          footerCard={studentSidebarData.footerCard}
+          isCollapsed={sidebarCollapsed}
+          isMobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
+        />
+        <main
+          className={`min-h-screen transition-[margin] duration-300 ${sidebarCollapsed ? "lg:ml-0" : "lg:ml-[250px]"}`}
+        >
+          <Header
+            user={user}
+            mode="student"
+            searchPlaceholder="Search courses, lessons..."
+            sidebarCollapsed={sidebarCollapsed}
+            mobileSidebarOpen={mobileSidebarOpen}
+            onSidebarToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            onMobileSidebarToggle={() => setMobileSidebarOpen((open) => !open)}
+          />
           <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
             <Outlet context={{ user }} />
           </div>
